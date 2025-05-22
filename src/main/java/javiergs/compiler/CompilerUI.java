@@ -2,7 +2,7 @@ package javiergs.compiler;
 
 import javiergs.compiler.TheLexer.*;
 import javiergs.compiler.TheParser.*;
-//import javiergs.compiler.semantic.SymbolTableItem;
+//import javiergs.compiler.TheSemantic.SymbolTableItem;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
