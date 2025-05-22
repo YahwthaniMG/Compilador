@@ -1,0 +1,21 @@
+class Student {
+
+    void method1() {
+        int x;
+        x = 1;
+    }
+    void method2(int a) {
+        int y;
+        y = (a + 1) * 2 - 3 / (4 + 5);
+    }
+    void method3(int a, int b) {
+        boolean z;
+        z = (a > b) && (a < b) || (a == b) && !!!(a != b);
+    }
+    void method4(float a, int b, char c, string $valid_identifier) {
+        int w;
+        w = a + b * c(1, 2, 3);
+    }
+
+}
+

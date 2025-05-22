@@ -1,0 +1,7 @@
+class Suma {
+    int a = 25;
+    int b = 67;
+    void suma_dos_numero( int a, int b){
+        int suma = a + b;
+    //Falta la llave de cierre
+}

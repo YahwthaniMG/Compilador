@@ -1,0 +1,13 @@
+class Student {
+
+    void method1() {
+    }
+    void method2(int a) {
+    }
+    void method3(int a, int b) {
+    }
+    void method4(float a, int b, char c, string $valid_identifier) {
+    }
+
+}
+

@@ -1,0 +1,7 @@
+class Temperatura {
+    float fahrenheit;
+    void celsiusTofahrenheit(float celsius){
+        // Error: Falta el operador '=' para la asignación
+        fahrenheit  (celsius * 9/5) + 32;
+    }
+}
