@@ -462,6 +462,26 @@ public class TheSemantic {
             System.out.println(key + "\t|\t" + item.getType() + "\t|\t" + item.getValue());
         }
     }
+
+    public void setVariableValue(String identifier, String value, int lineNumber) {
+        // Buscar primero en scope actual
+        String key = currentScope + "." + identifier;
+        if (symbolTable.containsKey(key)) {
+            symbolTable.get(key).get(0).setValue(value);
+            return;
+        }
+
+        // Luego en scope global
+        key = "global." + identifier;
+        if (symbolTable.containsKey(key)) {
+            symbolTable.get(key).get(0).setValue(value);
+            return;
+        }
+
+        // Si no existe, reportar error
+        semanticErrors.add("Semantic Error: Variable '" + identifier +
+                "' is not declared at line " + lineNumber);
+    }
 }
 
 /**

@@ -33,6 +33,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 	private JMenuItem menuCompiler = new JMenuItem("Compile");
 	private JTree tree;
 	private JPanel treePanel = new JPanel(new GridLayout(1, 1));
+	private JTextArea parseTreeArea;
 
 	public CompilerUI() {
 		createMenu();
@@ -94,9 +95,14 @@ public class CompilerUI extends JFrame implements ActionListener {
 
 	public void writeParseTree(Vector<String> parseTree) {
 		StringBuilder treeText = new StringBuilder();
+		treeText.append("Parse Tree:\n");
+		treeText.append("===========\n\n");
+
 		for (String rule : parseTree) {
 			treeText.append(rule).append("\n");
 		}
+
+		parseTreeArea.setText(treeText.toString());
 	}
 
 	private void clearTokenTable() {
@@ -109,6 +115,12 @@ public class CompilerUI extends JFrame implements ActionListener {
 		int ta = ((DefaultTableModel) semanticTable.getModel()).getRowCount();
 		for (int i = 0; i < ta; i++)
 			((DefaultTableModel) semanticTable.getModel()).removeRow(0);
+	}
+
+	private void clearParseTree() {
+		if (parseTreeArea != null) {
+			parseTreeArea.setText("After compilation, the Parse Tree will be showed here");
+		}
 	}
 
 	@Override
@@ -134,6 +146,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 		} else if (menuCompiler.equals(e.getSource())) {
 			clearTokenTable();
 			clearSemanticTable();
+			clearParseTree();
 			console.setText("");
 			codeArea.setText("");
 
@@ -143,48 +156,52 @@ public class CompilerUI extends JFrame implements ActionListener {
 				return;
 			}
 
-			// Crear el lexer con el texto del editor
-			TheLexer lex = new TheLexer(editor.getText());
-            try {
-                lex.run();
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-            Vector<TheToken> tokens = lex.getTokens();
+			try {
+				// Crear el lexer con el texto del editor
+				TheLexer lex = new TheLexer(editor.getText());
+				lex.run();
+				Vector<TheToken> tokens = lex.getTokens();
 
-			// show token in a table
-			writeTokenTable(tokens);
+				// show token in a table
+				writeTokenTable(tokens);
 
-			// counting errorss
-			int errors = 0;
-			for (TheToken token : tokens) {
-				if (token.getType().equals("ERROR")) {  // Cambio: usar getType() en lugar de getToken()
-					errors++;
-				}
-			}
-
-			// show stats on console
-			writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
-			writeConsole(errors + " strings do not match any rule");
-
-			// Análisis sintáctico
-			TheParser parser = new TheParser(tokens);
-			parser.run();
-
-			// Análisis semántico
-			TheSemantic semantic = parser.getSemantic(); // Necesitarás agregar este getter al parser
-			if (semantic != null) {
-				writeSymbolTable(semantic.getSymbolTable());
-
-				// Mostrar errores semánticos en la consola
-				if (semantic.hasErrors()) {
-					writeConsole("Semantic errors found:");
-					for (String error : semantic.getSemanticErrors()) {
-						writeConsole(error);
+				// counting errors
+				int errors = 0;
+				for (TheToken token : tokens) {
+					if (token.getType().equals("ERROR")) {
+						errors++;
 					}
-				} else {
-					writeConsole("No semantic errors found.");
 				}
+
+				// show stats on console
+				writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
+				writeConsole(errors + " strings do not match any rule");
+
+				// Análisis sintáctico
+				TheParser parser = new TheParser(tokens);
+				parser.run();
+
+				//Mostrar parse tree
+				writeParseTree(parser.getParseTreeLog());
+
+				// Análisis semántico
+				TheSemantic semantic = parser.getSemantic();
+				if (semantic != null) {
+					writeSymbolTable(semantic.getSymbolTable());
+
+					// Mostrar errores semánticos en la consola
+					if (semantic.hasErrors()) {
+						writeConsole("Semantic errors found:");
+						for (String error : semantic.getSemanticErrors()) {
+							writeConsole(error);
+						}
+					} else {
+						writeConsole("No semantic errors found.");
+					}
+				}
+
+			} catch (IOException ex) {
+				writeConsole("Error during lexical analysis: " + ex.getMessage());
 			}
 		}
 	}
@@ -260,7 +277,10 @@ public class CompilerUI extends JFrame implements ActionListener {
 		// tree
 		panelTitle = BorderFactory.createTitledBorder("Syntactical Analysis");
 		treePanel.setBorder(panelTitle);
-		JScrollPane treeView = new JScrollPane(new JTextArea("Holi"));
+		parseTreeArea = new JTextArea();
+		parseTreeArea.setEditable(false);
+		parseTreeArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+		JScrollPane treeView = new JScrollPane(parseTreeArea);
 		treePanel.add(treeView);
 		// semantic
 		panelTitle = BorderFactory.createTitledBorder("Symbol Table");
