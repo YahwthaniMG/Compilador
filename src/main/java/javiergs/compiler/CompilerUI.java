@@ -2,7 +2,8 @@ package javiergs.compiler;
 
 import javiergs.compiler.TheLexer.*;
 import javiergs.compiler.TheParser.*;
-//import javiergs.compiler.TheSemantic.SymbolTableItem;
+import javiergs.compiler.TheSemantic.*;
+import javiergs.compiler.TheToken.*;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -71,8 +72,8 @@ public class CompilerUI extends JFrame implements ActionListener {
 		editor.append(msg + "\n");
 	}
 
-	private void writeTokenTable(Vector<Token> tokens) {
-		for (Token token1 : tokens) {
+	private void writeTokenTable(Vector<TheToken> tokens) {
+		for (TheToken token1 : tokens) {
 			int line = token1.getLine();
 			String token = token1.getToken();
 			String word = token1.getWord();
@@ -134,14 +135,14 @@ public class CompilerUI extends JFrame implements ActionListener {
 				writeConsole("The file is empty");
 				return;
 			}
-			Lexer lex = new Lexer(editor.getText());
+			TheLexer lex = new TheLexer(editor.getText());
 			lex.run();
-			Vector<Token> tokens = lex.getTokens();
+			Vector<TheToken> tokens = lex.getTokens();
 			// show token in a table
 			writeTokenTable(tokens);
 			// counting errors
 			int errors = 0;
-			for (Token token : tokens) {
+			for (TheToken token : tokens) {
 				if (token.getToken().equals("ERROR")) {
 					errors++;
 				}
@@ -151,7 +152,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 			writeConsole(errors + " strings do not match any rule");
 			// update tree
 			treePanel.removeAll();
-			tree = new JTree(Parser.run(tokens, this));
+			tree = new JTree(TheParser.run(tokens, this));
 			JScrollPane treeView = new JScrollPane(tree);
 			// expand nodes
 			for (int i = 0; i < tree.getRowCount(); i++) {
