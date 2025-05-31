@@ -1,4 +1,5 @@
 package javiergs.compiler;
+
 /**
  * Token.java
  * ---------------
@@ -31,6 +32,7 @@ public class TheToken {
 		this.lineNumber = lineNumber;
 	}
 
+	// Métodos originales
 	public String getValue() {
 		return value;
 	}
@@ -42,5 +44,30 @@ public class TheToken {
 	public int getLineNumber() {
 		return lineNumber;
 	}
-}
 
+	// Métodos adicionales para compatibilidad con CompilerUI
+	public String getToken() {
+		return type;  // El tipo del token (KEYWORD, IDENTIFIER, etc.)
+	}
+
+	public String getWord() {
+		return value; // El valor del token (class, Student, {, etc.)
+	}
+
+	public int getLine() {
+		return lineNumber; // El número de línea
+	}
+
+	// Setters
+	public void setValue(String value) {
+		this.value = value;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public void setLineNumber(int lineNumber) {
+		this.lineNumber = lineNumber;
+	}
+}

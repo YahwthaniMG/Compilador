@@ -40,6 +40,22 @@ public class TheLexer {
     ));
 
     /**
+     * Constructor que acepta texto directo en lugar de archivo
+     * @param text El texto a analizar
+     */
+    public TheLexer(String text) {
+        this.file = null; // No hay archivo
+        tokens = new Vector<>();
+        dfa = new Automata();
+
+        // Inicializar el DFA
+        initializeDFA();
+        // Procesar el texto directamente
+        processText(text);
+    }
+
+
+    /**
      * Constructs a new Lexer for the specified input file.
      * Initializes the DFA with transitions for all supported token types.
      *
@@ -50,6 +66,44 @@ public class TheLexer {
         tokens = new Vector<>();
         dfa = new Automata();
 
+        // Inicializar el DFA
+        initializeDFA();
+    }
+
+    /**
+     * Metodo para procesar texto directamente
+     * @param text El texto a procesar
+     */
+    private void processText(String text) {
+        String[] lines = text.split("\n");
+        int lineNumber = 1;
+
+        for (String line : lines) {
+            algorithm(line, lineNumber);
+            lineNumber++;
+        }
+    }
+
+    /**
+     * Executes the lexical analysis on the input file.
+     * Reads the file line by line and processes each line using the DFA.
+     *
+     * @throws IOException If an I/O error occurs while reading the input file
+     */
+    public void run() throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+        String line;
+        int lineNumber = 1;
+        while ((line = reader.readLine()) != null) {
+            algorithm(line, lineNumber);
+            lineNumber++;
+        }
+    }
+
+    /**
+     * Método para inicializar el DFA
+     */
+    private void initializeDFA() {
         //Binary transitions
         dfa.addTransition("s0", "0", "s1");
         dfa.addTransition("s1", "b", "s2");
@@ -223,23 +277,6 @@ public class TheLexer {
         }
         dfa.addTransition("s21", "'", "s22");
         dfa.addAcceptState("s22", "CHAR");
-
-    }
-
-    /**
-     * Executes the lexical analysis on the input file.
-     * Reads the file line by line and processes each line using the DFA.
-     *
-     * @throws IOException If an I/O error occurs while reading the input file
-     */
-    public void run() throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-        String line;
-        int lineNumber = 1;
-        while ((line = reader.readLine()) != null) {
-            algorithm(line, lineNumber);
-            lineNumber++;
-        }
     }
 
     /**

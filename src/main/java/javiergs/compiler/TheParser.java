@@ -25,9 +25,13 @@ public class TheParser {
 	private Map<String, Set<String>> firstSets;
     private Map<String, Set<String>> followSets;
 
+	private TheSemantic semantic;
+	private String currentMethodReturnType = null;
+
 	public TheParser(Vector<TheToken> tokens) {
 		this.tokens = tokens;
 		currentToken = 0;
+		this.semantic = new TheSemantic();
 		initializeFirstAndFollowSets();
 	}
 
@@ -713,30 +717,53 @@ public class TheParser {
 
 	private void RULE_VARIABLE() {
 		System.out.println("--- RULE_VARIABLE");
+
 		if (!isInFirstSetOf("VARIABLE")) {
 			boolean foundFirst = skipUntilFirstOrFollow("VARIABLE", 500);
-			
 			if (!foundFirst) {
 				System.out.println("Recovered: Skipping VARIABLE rule");
 				return;
 			}
 		}
-		RULE_TYPE();
+
+		String variableType = null;
+		String variableName = null;
+
+		// Capturar el tipo
+		if (isType()) {
+			variableType = tokens.get(currentToken).getValue();
+			RULE_TYPE();
+		}
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
-				System.out.println("--- IDENTIFIER: " + tokens.get(currentToken).getValue());
+			variableName = tokens.get(currentToken).getValue();
+			System.out.println("--- IDENTIFIER: " + variableName);
+
+			// ANÁLISIS SEMÁNTICO: Declarar variable
+			if (variableType != null && variableName != null) {
+				semantic.checkVariableDeclaration(variableType, variableName, tokens.get(currentToken).getLineNumber());
+			}
+
+			currentToken++;
+
+			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("=")) {
 				currentToken++;
-				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("=")) {
-					currentToken++;
-					System.out.println("--- =");
-					if (!isInFirstSetOf("EXPRESSION")) {
-						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 501);
-						if (!foundFirst) {
-							System.out.println("Recovered: Missing expression in variable initialization");
-							return;
-						}
+				System.out.println("--- =");
+
+				if (!isInFirstSetOf("EXPRESSION")) {
+					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 501);
+					if (!foundFirst) {
+						System.out.println("Recovered: Missing expression in variable initialization");
+						return;
 					}
-					RULE_EXPRESSION();
 				}
+
+				// Evaluar la expresión y verificar compatibilidad de tipos
+				String expressionType = evaluateExpression();
+				if (variableType != null && expressionType != null) {
+					semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
+				}
+			}
 		} else {
 			error(502);
 			// Try to recover by finding a semicolon or the next statement
@@ -751,6 +778,7 @@ public class TheParser {
 
 	private void RULE_ASSIGNMENT() {
 		System.out.println("--- RULE_ASSIGNMENT");
+
 		if (!isInFirstSetOf("ASSIGNMENT")) {
 			boolean foundFirst = skipUntilFirstOrFollow("ASSIGNMENT", 600);
 			if (!foundFirst) {
@@ -758,21 +786,36 @@ public class TheParser {
 				return;
 			}
 		}
+
+		String variableName = null;
+		String variableType = null;
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
-			System.out.println("--- IDENTIFIER: " + tokens.get(currentToken).getValue());
+			variableName = tokens.get(currentToken).getValue();
+			System.out.println("--- IDENTIFIER: " + variableName);
+
+			// ANÁLISIS SEMÁNTICO: Verificar que la variable existe
+			variableType = semantic.checkVariableUsage(variableName, tokens.get(currentToken).getLineNumber());
+
 			currentToken++;
+
 			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("=")) {
 				currentToken++;
 				System.out.println("--- =");
+
 				if (!isInFirstSetOf("EXPRESSION")) {
 					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 601);
-					
 					if (!foundFirst) {
 						System.out.println("Recovered: Missing expression in assignment");
 						return;
 					}
 				}
-				RULE_EXPRESSION();
+
+				// Evaluar la expresión y verificar compatibilidad de tipos
+				String expressionType = evaluateExpression();
+				if (variableType != null && expressionType != null) {
+					semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
+				}
 			} else {
 				error(602);
 				// Try to recover by finding a semicolon or the next statement
@@ -2167,4 +2210,40 @@ public class TheParser {
 				tokens.get(currentToken).getValue().equals("switch");
 	}
 
+	public TheSemantic getSemantic() {
+		return semantic;
+	}
+
+	private String evaluateExpression() {
+		// Por ahora, una implementación simple
+		// En el futuro, esto debería hacer un análisis más completo de la expresión
+		RULE_EXPRESSION();
+
+		// Implementación temporal: determinar el tipo basado en el token actual
+		if (currentToken < tokens.size()) {
+			String tokenType = tokens.get(currentToken).getType();
+			switch (tokenType) {
+				case "INTEGER":
+					return "int";
+				case "FLOAT":
+					return "float";
+				case "STRING":
+					return "string";
+				case "CHAR":
+					return "char";
+				case "KEYWORD":
+					String value = tokens.get(currentToken).getValue();
+					if (value.equals("true") || value.equals("false")) {
+						return "boolean";
+					}
+					break;
+				case "IDENTIFIER":
+					// Buscar el tipo de la variable en la tabla de símbolos
+					return semantic.checkVariableUsage(tokens.get(currentToken).getValue(),
+							tokens.get(currentToken).getLineNumber());
+			}
+		}
+
+		return null; // Tipo desconocido
+	}
 }

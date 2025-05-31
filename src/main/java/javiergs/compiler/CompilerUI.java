@@ -1,9 +1,5 @@
 package javiergs.compiler;
 
-import javiergs.compiler.TheLexer.*;
-import javiergs.compiler.TheParser.*;
-import javiergs.compiler.TheSemantic.*;
-import javiergs.compiler.TheToken.*;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -73,23 +69,26 @@ public class CompilerUI extends JFrame implements ActionListener {
 	}
 
 	private void writeTokenTable(Vector<TheToken> tokens) {
-		for (TheToken token1 : tokens) {
-			int line = token1.getLine();
-			String token = token1.getToken();
-			String word = token1.getWord();
-			((DefaultTableModel) tokensTable.getModel()).addRow(new Object[]{String.format("%04d", line), token, word});
+		for (TheToken token : tokens) {
+			int line = token.getLineNumber();
+			String tokenType = token.getType();
+			String tokenValue = token.getValue();
+			((DefaultTableModel) tokensTable.getModel()).addRow(new Object[]{String.format("%04d", line), tokenType, tokenValue});
 		}
 	}
 
 	public void writeSymbolTable(Hashtable<String, Vector<SymbolTableItem>> symbolTable) {
 		if (symbolTable == null) return;
-		Enumeration items = symbolTable.keys();
-		if (items != null) while (items.hasMoreElements()) {
-			String name = (String) items.nextElement();
-			String type = symbolTable.get(name).get(0).getType();
-			String scope = symbolTable.get(name).get(0).getScope();
-			String value = symbolTable.get(name).get(0).getValue();
-			((DefaultTableModel) semanticTable.getModel()).addRow(new Object[]{name, type, scope,});
+
+		Enumeration<String> items = symbolTable.keys();
+		if (items != null) {
+			while (items.hasMoreElements()) {
+				String name = items.nextElement();
+				String type = symbolTable.get(name).get(0).getType();
+				String scope = symbolTable.get(name).get(0).getScope();
+				String value = symbolTable.get(name).get(0).getValue();
+				((DefaultTableModel) semanticTable.getModel()).addRow(new Object[]{name, type, scope, value});
+			}
 		}
 	}
 
@@ -130,37 +129,52 @@ public class CompilerUI extends JFrame implements ActionListener {
 			clearSemanticTable();
 			console.setText("");
 			codeArea.setText("");
+
 			// lexical analysis
 			if (editor.getText().equals("")) {
 				writeConsole("The file is empty");
 				return;
 			}
+
+			// Crear el lexer con el texto del editor
 			TheLexer lex = new TheLexer(editor.getText());
 			lex.run();
 			Vector<TheToken> tokens = lex.getTokens();
+
 			// show token in a table
 			writeTokenTable(tokens);
-			// counting errors
+
+			// counting errorss
 			int errors = 0;
 			for (TheToken token : tokens) {
-				if (token.getToken().equals("ERROR")) {
+				if (token.getType().equals("ERROR")) {  // Cambio: usar getType() en lugar de getToken()
 					errors++;
 				}
 			}
-			// show stats on on the console
-			writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLine() + " lines,");
+
+			// show stats on console
+			writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
 			writeConsole(errors + " strings do not match any rule");
-			// update tree
-			treePanel.removeAll();
-			tree = new JTree(TheParser.run(tokens, this));
-			JScrollPane treeView = new JScrollPane(tree);
-			// expand nodes
-			for (int i = 0; i < tree.getRowCount(); i++) {
-				tree.expandRow(i);
+
+			// Análisis sintáctico
+			TheParser parser = new TheParser(tokens);
+			parser.run();
+
+			// Análisis semántico
+			TheSemantic semantic = parser.getSemantic(); // Necesitarás agregar este getter al parser
+			if (semantic != null) {
+				writeSymbolTable(semantic.getSymbolTable());
+
+				// Mostrar errores semánticos en la consola
+				if (semantic.hasErrors()) {
+					writeConsole("Semantic errors found:");
+					for (String error : semantic.getSemanticErrors()) {
+						writeConsole(error);
+					}
+				} else {
+					writeConsole("No semantic errors found.");
+				}
 			}
-			treePanel.add(treeView);
-			treePanel.revalidate();
-			treePanel.repaint();
 		}
 	}
 
