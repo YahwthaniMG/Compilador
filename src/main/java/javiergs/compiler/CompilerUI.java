@@ -138,8 +138,12 @@ public class CompilerUI extends JFrame implements ActionListener {
 
 			// Crear el lexer con el texto del editor
 			TheLexer lex = new TheLexer(editor.getText());
-			lex.run();
-			Vector<TheToken> tokens = lex.getTokens();
+            try {
+                lex.run();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            Vector<TheToken> tokens = lex.getTokens();
 
 			// show token in a table
 			writeTokenTable(tokens);

@@ -50,6 +50,7 @@ public class TheLexer {
 
         // Inicializar el DFA
         initializeDFA();
+
         // Procesar el texto directamente
         processText(text);
     }
@@ -91,6 +92,10 @@ public class TheLexer {
      * @throws IOException If an I/O error occurs while reading the input file
      */
     public void run() throws IOException {
+        if (file == null) {
+            return;
+        }
+
         BufferedReader reader = new BufferedReader(new FileReader(file));
         String line;
         int lineNumber = 1;
@@ -98,6 +103,7 @@ public class TheLexer {
             algorithm(line, lineNumber);
             lineNumber++;
         }
+        reader.close();
     }
 
     /**
