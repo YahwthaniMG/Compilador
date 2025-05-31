@@ -92,6 +92,13 @@ public class CompilerUI extends JFrame implements ActionListener {
 		}
 	}
 
+	public void writeParseTree(Vector<String> parseTree) {
+		StringBuilder treeText = new StringBuilder();
+		for (String rule : parseTree) {
+			treeText.append(rule).append("\n");
+		}
+	}
+
 	private void clearTokenTable() {
 		int ta = ((DefaultTableModel) tokensTable.getModel()).getRowCount();
 		for (int i = 0; i < ta; i++)
@@ -253,7 +260,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 		// tree
 		panelTitle = BorderFactory.createTitledBorder("Syntactical Analysis");
 		treePanel.setBorder(panelTitle);
-		JScrollPane treeView = new JScrollPane(new JLabel("After compilation, the parse Tree will be showed here", JLabel.CENTER));
+		JScrollPane treeView = new JScrollPane(new JTextArea("Holi"));
 		treePanel.add(treeView);
 		// semantic
 		panelTitle = BorderFactory.createTitledBorder("Symbol Table");
