@@ -1107,21 +1107,25 @@ public class TheParser {
 						// GENERACIÓN DE CÓDIGO: Evaluar condición del while
 						generateConditionCode();
 
-						// Evaluar la expresión de condición
+						// Evaluar la expresión de condición CORRECTAMENTE
 						String conditionType = evaluateExpression();
 
 						// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
-						semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
+						if (conditionType != null) {
+							semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
+						}
 					}
 				} else {
 					// GENERACIÓN DE CÓDIGO: Evaluar condición del while
 					generateConditionCode();
 
-					// Evaluar la expresión de condición
+					// Evaluar la expresión de condición CORRECTAMENTE
 					String conditionType = evaluateExpression();
 
 					// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
-					semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
+					if (conditionType != null) {
+						semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
+					}
 				}
 
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
@@ -2482,32 +2486,150 @@ public class TheParser {
 
 	private String evaluateExpression() {
 		int startToken = currentToken;
-		RULE_EXPRESSION();
+		int saveCurrentToken = currentToken; // Guardar posición actual
 
-		if (startToken < tokens.size()) {
-			String tokenType = tokens.get(startToken).getType();
-			String tokenValue = tokens.get(startToken).getValue();
+		try {
+			// Primero intentar evaluar la expresión sin avanzar el parser
+			String result = evaluateExpressionHelper(startToken);
+			return result;
+		} finally {
+			// Restaurar la posición del token después de la evaluación
+			currentToken = saveCurrentToken;
+			// Ahora sí procesar la expresión normalmente
+			RULE_EXPRESSION();
+		}
+	}
+
+	private String evaluateExpressionHelper(int startPos) {
+		if (startPos >= tokens.size()) {
+			return null;
+		}
+
+		// Para expresiones simples como literals
+		String tokenType = tokens.get(startPos).getType();
+		String tokenValue = tokens.get(startPos).getValue();
+
+		// Caso: literal directo
+		switch (tokenType) {
+			case "INTEGER":
+				return "int";
+			case "FLOAT":
+				return "float";
+			case "STRING":
+				return "string";
+			case "CHAR":
+				return "char";
+			case "KEYWORD":
+				if (tokenValue.equals("true") || tokenValue.equals("false")) {
+					return "boolean";
+				}
+				break;
+			case "IDENTIFIER":
+				// Buscar el tipo de la variable en la tabla de símbolos
+				return semantic.checkVariableUsage(tokenValue, tokens.get(startPos).getLineNumber());
+		}
+
+		// Para expresiones más complejas, necesitamos analizar la estructura
+		return evaluateComplexExpression(startPos);
+	}
+
+	private String evaluateComplexExpression(int startPos) {
+		// Buscar operadores en la expresión para determinar el tipo resultado
+		int pos = startPos;
+		String leftType = null;
+		String operator = null;
+		String rightType = null;
+
+		// Obtener el primer operando
+		if (pos < tokens.size()) {
+			String tokenType = tokens.get(pos).getType();
+			String tokenValue = tokens.get(pos).getValue();
 
 			switch (tokenType) {
 				case "INTEGER":
-					return "int";
+					leftType = "int";
+					break;
 				case "FLOAT":
-					return "float";
+					leftType = "float";
+					break;
 				case "STRING":
-					return "string";
+					leftType = "string";
+					break;
 				case "CHAR":
-					return "char";
+					leftType = "char";
+					break;
 				case "KEYWORD":
 					if (tokenValue.equals("true") || tokenValue.equals("false")) {
-						return "boolean";
+						leftType = "boolean";
 					}
 					break;
 				case "IDENTIFIER":
-					// Buscar el tipo de la variable en la tabla de símbolos
-					return semantic.checkVariableUsage(tokenValue, tokens.get(startToken).getLineNumber());
+					leftType = semantic.checkVariableUsage(tokenValue, tokens.get(pos).getLineNumber());
+					break;
+			}
+			pos++;
+		}
+
+		// Buscar operador
+		while (pos < tokens.size()) {
+			String tokenValue = tokens.get(pos).getValue();
+			if (isComparisonOperator(tokenValue) || isArithmeticOperator(tokenValue) || isLogicalOperator(tokenValue)) {
+				operator = tokenValue;
+				pos++;
+				break;
+			}
+			pos++;
+		}
+
+		// Si no hay operador, retornar el tipo del operando izquierdo
+		if (operator == null) {
+			return leftType;
+		}
+
+		// Obtener el segundo operando
+		if (pos < tokens.size()) {
+			String tokenType = tokens.get(pos).getType();
+			String tokenValue = tokens.get(pos).getValue();
+
+			switch (tokenType) {
+				case "INTEGER":
+					rightType = "int";
+					break;
+				case "FLOAT":
+					rightType = "float";
+					break;
+				case "STRING":
+					rightType = "string";
+					break;
+				case "CHAR":
+					rightType = "char";
+					break;
+				case "KEYWORD":
+					if (tokenValue.equals("true") || tokenValue.equals("false")) {
+						rightType = "boolean";
+					}
+					break;
+				case "IDENTIFIER":
+					rightType = semantic.checkVariableUsage(tokenValue, tokens.get(pos).getLineNumber());
+					break;
 			}
 		}
-		return null;
+		// Determinar el tipo resultado basado en el operador
+		if (isComparisonOperator(operator)) {
+			return "boolean"; // Los operadores de comparación siempre retornan boolean
+		} else if (isLogicalOperator(operator)) {
+			return "boolean"; // Los operadores lógicos siempre retornan boolean
+		} else if (isArithmeticOperator(operator)) {
+			// Para operadores aritméticos, usar el cubo semántico
+			return semantic.checkOperation(leftType, rightType, operator, tokens.get(startPos).getLineNumber());
+		}
+
+		return leftType; // Por defecto, retornar el tipo del operando izquierdo
+	}
+
+	// Métodos auxiliares para detectar tipos de operadores
+	private boolean isLogicalOperator(String op) {
+		return op.equals("&&") || op.equals("||") || op.equals("!");
 	}
 
 	private void generateConditionCode() {
