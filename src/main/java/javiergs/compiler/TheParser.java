@@ -1078,7 +1078,7 @@ public class TheParser {
 			currentToken++;
 			logParseRule("--- while");
 
-			// GENERACIÓN DE CÓDIGO: Etiqueta del inicio del while
+			// GENERACIÓN DE CÓDIGO: Etiqueta del inicio del while (ANTES de evaluar condición)
 			String whileStartLabel = codeGenerator.generateLabel();
 			codeGenerator.addLabel(whileStartLabel);
 
@@ -1130,17 +1130,9 @@ public class TheParser {
 
 					// GENERACIÓN DE CÓDIGO: Salto condicional al final del while
 					String whileEndLabel = codeGenerator.generateLabel();
-					codeGenerator.generateConditionalJump(whileEndLabel, "false");
+					codeGenerator.generateWhileConditionalJump(whileEndLabel);
 
-					if (!isInFirstSetOf("STATEMENT_BLOCK")) {
-						boolean foundFirst = skipUntilFirstOrFollow("STATEMENT_BLOCK", 902);
-						if (!foundFirst) {
-							System.out.println("Recovered: Missing statement block in while loop");
-							indentLevel--;
-							return;
-						}
-					}
-
+					// Procesar el cuerpo del while
 					RULE_STATEMENT_BLOCK();
 
 					// GENERACIÓN DE CÓDIGO: Salto incondicional al inicio del while
