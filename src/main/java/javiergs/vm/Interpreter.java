@@ -299,11 +299,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (v1or || v2or) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc + 1, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc + 1, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc + 1, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc + 1, "0");
 						}
 						break;
 					
@@ -315,11 +315,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (v1and && v2and) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc + 1, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc + 1, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc + 1, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc + 1, "0");
 						}
 						break;
 					
@@ -329,11 +329,11 @@ public class Interpreter {
 						Boolean v1not = Boolean.parseBoolean(value1.getValue().toString());
 						gui.deleteRegistry();
 						if (!v1not) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc + 1, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc + 1, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc + 1, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc + 1, "0");
 						}
 						break;
 					
@@ -345,11 +345,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (v1 > v2) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc + 1, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc + 1, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc + 1, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc + 1, "0");
 						}
 						break;
 					
@@ -361,11 +361,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (v1a < v2a) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc + 1, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc + 1, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc + 1, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc + 1, "0");
 						}
 						break;
 					
@@ -375,11 +375,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (s1.equals(s2)) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc, "1");
 						}
 						break;
 					
@@ -389,11 +389,11 @@ public class Interpreter {
 						gui.deleteRegistry();
 						gui.deleteRegistry();
 						if (!s1a.equals(s2a)) {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "true"));
-							gui.writeRegistry(pc, "true");
+							register_zero.push(newSymbolForTypeAndValue("int", "1"));
+							gui.writeRegistry(pc, "1");
 						} else {
-							register_zero.push(newSymbolForTypeAndValue("boolean", "false"));
-							gui.writeRegistry(pc, "false");
+							register_zero.push(newSymbolForTypeAndValue("int", "0"));
+							gui.writeRegistry(pc, "0");
 						}
 						break;
 					case 20:
