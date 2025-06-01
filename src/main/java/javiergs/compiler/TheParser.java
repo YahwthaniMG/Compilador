@@ -681,8 +681,15 @@ public class TheParser {
 					} else {
 						error(1305);
 					}
-				}
-				else if (isReturnStatement()) {
+				}else if (isInputlnStatement()) { // NUEVO: Agregar verificación para inputln
+					RULE_INPUTLN();
+					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
+						currentToken++;
+						logParseRule("-- ;");
+					} else {
+						error(1605);
+					}
+				}else if (isReturnStatement()) {
 					RULE_RETURN();
 				} else if (isWhileStatement()) {
 					RULE_WHILE();
@@ -1262,7 +1269,7 @@ public class TheParser {
 
 					// GENERACIÓN DE CÓDIGO: Salto condicional
 					String elseLabel = codeGenerator.generateLabel();
-					codeGenerator.generateConditionalJump(elseLabel, "false");
+					codeGenerator.generateIfConditionalJump(elseLabel);
 
 					RULE_STATEMENT_BLOCK();
 
@@ -1291,11 +1298,9 @@ public class TheParser {
 					}
 				} else {
 					error(402);
-					// Recovery logic...
 				}
 			} else {
 				error(403);
-				// Recovery logic...
 			}
 		} else {
 			error(404);
@@ -1305,8 +1310,9 @@ public class TheParser {
 	}
 
 	private void RULE_DO_WHILE() {
-		logParseRule("RULE_DO_WHILE");
+		logParseRule("--- RULE_DO_WHILE");
 		indentLevel++;
+
 		if (!isInFirstSetOf("DO_WHILE")) {
 			boolean foundFirst = skipUntilFirstOrFollow("DO_WHILE", 900);
 			if (!foundFirst) {
@@ -1315,117 +1321,68 @@ public class TheParser {
 				return;
 			}
 		}
+
 		if (tokens.get(currentToken).getValue().equals("do")) {
 			currentToken++;
 			logParseRule("do");
-			if (!isInFirstSetOf("STATEMENT_BLOCK")) {
-				boolean foundFirst = skipUntilFirstOrFollow("STATEMENT_BLOCK", 901);
-				if (!foundFirst) {
-					// Skip to "while" or something in FOLLOW(DO_WHILE)
-					while (currentToken < tokens.size() &&
-							!tokens.get(currentToken).getValue().equals("while") &&
-							!isInFollowSetOf("DO_WHILE")) {
-						currentToken++;
-					}
-					if (currentToken >= tokens.size() || !tokens.get(currentToken).getValue().equals("while")) {
-						System.out.println("Recovered: Missing statement block and while part in do-while loop");
-						return;
-					}
-					System.out.println("Recovered: Found while after missing statement block");
-				} else {
-					RULE_STATEMENT_BLOCK();
-				}
-			} else {
-				RULE_STATEMENT_BLOCK();
-			}
+
+			// GENERACIÓN DE CÓDIGO: Etiqueta del inicio del do-while
+			String doStartLabel = codeGenerator.generateLabel();
+			codeGenerator.addLabel(doStartLabel);
+
+			RULE_STATEMENT_BLOCK();
+
 			if (tokens.get(currentToken).getValue().equals("while")) {
 				currentToken++;
 				logParseRule("while");
+
 				if (tokens.get(currentToken).getValue().equals("(")) {
 					currentToken++;
 					logParseRule("(");
-					if (!isInFirstSetOf("EXPRESSION")) {
-						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 902);
-						if (!foundFirst) {
-							// Skip to ")" or something meaningful
-							while (currentToken < tokens.size() &&
-									!tokens.get(currentToken).getValue().equals(")") &&
-									!tokens.get(currentToken).getValue().equals(";") &&
-									!isInFollowSetOf("DO_WHILE")) {
-								currentToken++;
-							}
-							if (currentToken >= tokens.size() ||
-									(!tokens.get(currentToken).getValue().equals(")") &&
-											!tokens.get(currentToken).getValue().equals(";"))) {
-								System.out.println("Recovered: Missing condition in do-while loop");
-								return;
-							}
-							System.out.println("Recovered: Found closing parenthesis or semicolon after missing condition");
-						} else {
-							RULE_EXPRESSION();
-						}
-					} else {
-						RULE_EXPRESSION();
-					}
+
+					// GENERACIÓN DE CÓDIGO: Evaluar condición del do-while
+					generateConditionCode();
+
+					// Evaluar la expresión de condición
+					String conditionType = evaluateExpression();
+
+					// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
+					semantic.checkBooleanExpression(conditionType, "do-while", tokens.get(currentToken).getLineNumber());
+
 					if (tokens.get(currentToken).getValue().equals(")")) {
 						currentToken++;
 						logParseRule(")");
+
+						// GENERACIÓN DE CÓDIGO: Salto condicional al inicio si es verdadero
+						// En do-while, si la condición es true (1), volver al inicio
+						codeGenerator.generateConditionalJump(doStartLabel, "1");
+
 						if (tokens.get(currentToken).getValue().equals(";")) {
 							currentToken++;
 							logParseRule(";");
 						} else {
 							error(35);
-							// Skip until we find something in FOLLOW(DO_WHILE)
-							while (currentToken < tokens.size() && !isInFollowSetOf("DO_WHILE")) {
-								currentToken++;
-							}
-							System.out.println("Recovered: Missing semicolon after do-while condition");
 						}
 					} else {
 						error(36);
-						// Try to recover by finding the semicolon
-						while (currentToken < tokens.size() &&
-								!tokens.get(currentToken).getValue().equals(";") &&
-								!isInFollowSetOf("DO_WHILE")) {
-							currentToken++;
-						}
-						if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
-							currentToken++;
-							System.out.println("Recovered: Found semicolon after missing closing parenthesis");
-						} else {
-							System.out.println("Recovered: Missing closing parenthesis and semicolon in do-while");
-						}
 					}
 				} else {
 					error(37);
-					// Try to recover by skipping to next statement
-					while (currentToken < tokens.size() && !isInFollowSetOf("DO_WHILE")) {
-						currentToken++;
-					}
-					System.out.println("Recovered: Missing condition parentheses in do-while loop");
 				}
 			} else {
 				error(38);
-				// Try to recover by skipping to next statement
-				while (currentToken < tokens.size() && !isInFollowSetOf("DO_WHILE")) {
-					currentToken++;
-				}
-				System.out.println("Recovered: Missing while part in do-while loop");
 			}
 		} else {
 			error(39);
-			// Try to recover by skipping to next statement
-			while (currentToken < tokens.size() && !isInFollowSetOf("DO_WHILE")) {
-				currentToken++;
-			}
-			System.out.println("Recovered: Invalid do-while statement");
 		}
+
 		indentLevel--;
 	}
 
 	private void RULE_FOR() {
-		logParseRule("RULE_FOR");
+		logParseRule("--- RULE_FOR");
 		indentLevel++;
+
 		if (!isInFirstSetOf("FOR")) {
 			boolean foundFirst = skipUntilFirstOrFollow("FOR", 1000);
 			if (!foundFirst) {
@@ -1434,128 +1391,121 @@ public class TheParser {
 				return;
 			}
 		}
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("for")) {
 			currentToken++;
 			logParseRule("for");
+
 			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("(")) {
 				currentToken++;
 				logParseRule("(");
+
 				// Initialization part
 				if (isType()) {
 					RULE_VARIABLE();
 				} else if (!tokens.get(currentToken).getValue().equals(";")) {
-					if (!isInFirstSetOf("EXPRESSION")) {
-						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 1001);
-						if (foundFirst) {
-							RULE_EXPRESSION();
-						}
-					} else {
-						RULE_EXPRESSION();
+					if (isAssignment()) {
+						RULE_ASSIGNMENT();
+					} else if (isInFirstSetOf("EXPRESSION")) {
+						String expressionValue = generateExpressionCode();
+						String expressionType = evaluateExpression();
 					}
 				}
+
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
 					currentToken++;
 					logParseRule(";");
 				} else {
 					error(1002);
-					// Try to skip to the next part of the for loop
-					while (currentToken < tokens.size() &&
-							!tokens.get(currentToken).getValue().equals(";") &&
-							!tokens.get(currentToken).getValue().equals(")")) {
-						currentToken++;
-					}
-					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
-						currentToken++;
-						System.out.println("Recovered: Found next semicolon in for loop");
-					} else {
-						System.out.println("Recovered: Missing semicolon in for loop initialization");
-					}
 				}
+
+				// GENERACIÓN DE CÓDIGO: Etiqueta del inicio del for (evaluación de condición)
+				String forStartLabel = codeGenerator.generateLabel();
+				codeGenerator.addLabel(forStartLabel);
+
 				// Condition part
 				if (currentToken < tokens.size() && !tokens.get(currentToken).getValue().equals(";")) {
-					if (!isInFirstSetOf("EXPRESSION")) {
-						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 1003);
-						if (foundFirst) {
-							RULE_EXPRESSION();
-						}
-					} else {
-						RULE_EXPRESSION();
+					// GENERACIÓN DE CÓDIGO: Evaluar condición del for
+					generateConditionCode();
+
+					// Evaluar la expresión de condición
+					String conditionType = evaluateExpression();
+
+					// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
+					if (conditionType != null) {
+						semantic.checkBooleanExpression(conditionType, "for", tokens.get(currentToken).getLineNumber());
 					}
 				}
+
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
 					currentToken++;
 					logParseRule(";");
 				} else {
 					error(1004);
-					// Try to skip to the closing parenthesis
-					while (currentToken < tokens.size() &&
-							!tokens.get(currentToken).getValue().equals(")")) {
-						currentToken++;
-					}
-					if (currentToken < tokens.size()) {
-						System.out.println("Recovered: Missing semicolon in for loop condition");
-					} else {
-						System.out.println("Recovered: Malformed for loop");
-						return;
-					}
 				}
-				// Increment part
+
+				// GENERACIÓN DE CÓDIGO: Salto condicional al final del for
+				String forEndLabel = codeGenerator.generateLabel();
+				codeGenerator.generateConditionalJump(forEndLabel, "false");
+
+				// Guardar la posición del incremento para procesarlo después del cuerpo
+				int incrementStart = currentToken;
+
+				// Increment part (solo parseamos, no generamos código aquí)
 				if (currentToken < tokens.size() && !tokens.get(currentToken).getValue().equals(")")) {
 					if (isAssignment()) {
-						RULE_ASSIGNMENT();
-					} else if (!isInFirstSetOf("EXPRESSION")) {
-						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 1005);
-						if (foundFirst) {
-							RULE_EXPRESSION();
+						// Solo avanzar tokens sin generar código
+						while (currentToken < tokens.size() && !tokens.get(currentToken).getValue().equals(")")) {
+							currentToken++;
 						}
-					} else {
-						RULE_EXPRESSION();
+					} else if (isInFirstSetOf("EXPRESSION")) {
+						// Solo avanzar tokens sin generar código
+						while (currentToken < tokens.size() && !tokens.get(currentToken).getValue().equals(")")) {
+							currentToken++;
+						}
 					}
 				}
+
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
 					currentToken++;
 					logParseRule(")");
-					if (!isInFirstSetOf("STATEMENT_BLOCK")) {
-						boolean foundFirst = skipUntilFirstOrFollow("STATEMENT_BLOCK", 1006);
-						if (!foundFirst) {
-							System.out.println("Recovered: Missing statement block in for loop");
-							return;
+
+					// Procesar el cuerpo del for
+					RULE_STATEMENT_BLOCK();
+
+					// GENERACIÓN DE CÓDIGO: Ahora generar el incremento
+					// Regresar a procesar el incremento
+					int saveCurrentToken = currentToken;
+					currentToken = incrementStart;
+
+					if (currentToken < saveCurrentToken - 1 && !tokens.get(currentToken).getValue().equals(")")) {
+						if (isAssignment()) {
+							RULE_ASSIGNMENT();
+						} else if (isInFirstSetOf("EXPRESSION")) {
+							String incrementValue = generateExpressionCode();
+							String incrementType = evaluateExpression();
 						}
 					}
-					RULE_STATEMENT_BLOCK();
+
+					// Restaurar posición
+					currentToken = saveCurrentToken;
+
+					// GENERACIÓN DE CÓDIGO: Salto incondicional al inicio del for
+					codeGenerator.generateJump(forStartLabel);
+
+					// GENERACIÓN DE CÓDIGO: Etiqueta del final del for
+					codeGenerator.addLabel(forEndLabel);
+
 				} else {
 					error(1007);
-					// Try to recover by looking for a statement block
-					if (isInFirstSetOf("STATEMENT_BLOCK")) {
-						System.out.println("Recovered: Missing ')' in for loop");
-						RULE_STATEMENT_BLOCK();
-					} else {
-						// Skip to the next statement
-						while (currentToken < tokens.size() &&
-								!isInFollowSetOf("FOR")) {
-							currentToken++;
-						}
-						System.out.println("Recovered: Skipped malformed for loop");
-					}
 				}
 			} else {
 				error(1008);
-				// Try to find a statement block and assume the for loop was intended
-				while (currentToken < tokens.size() &&
-						!isInFirstSetOf("STATEMENT_BLOCK") &&
-						!isInFollowSetOf("FOR")) {
-					currentToken++;
-				}
-				if (isInFirstSetOf("STATEMENT_BLOCK")) {
-					System.out.println("Recovered: Assuming empty for loop condition");
-					RULE_STATEMENT_BLOCK();
-				} else {
-					System.out.println("Recovered: Skipped malformed for loop");
-				}
 			}
 		} else {
 			error(1009);
 		}
+
 		indentLevel--;
 	}
 
@@ -2062,6 +2012,48 @@ public class TheParser {
 		indentLevel--;
 	}
 
+	private void RULE_INPUTLN() {
+		logParseRule("RULE_INPUTLN");
+		indentLevel++;
+
+		if (!isInFirstSetOf("INPUTLN")) {
+			boolean foundFirst = skipUntilFirstOrFollow("INPUTLN", 1600);
+			if (!foundFirst) {
+				System.out.println("Recovered: Skipping INPUTLN rule");
+				indentLevel--;
+				return;
+			}
+		}
+
+		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("inputln")) {
+			currentToken++;
+			logParseRule("inputln");
+
+			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("(")) {
+				currentToken++;
+				logParseRule("(");
+
+				// GENERACIÓN DE CÓDIGO: inputln
+				codeGenerator.generateInputln();
+
+				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
+					currentToken++;
+					logParseRule(")");
+				} else {
+					error(1602);
+					System.out.println("Recovered: Missing closing parenthesis in inputln");
+				}
+			} else {
+				error(1603);
+				System.out.println("Recovered: Missing opening parenthesis in inputln");
+			}
+		} else {
+			error(1604);
+		}
+
+		indentLevel--;
+	}
+
 	private void RULE_X() {
 		logParseRule("---- RULE_X");
 		indentLevel++;
@@ -2240,7 +2232,14 @@ public class TheParser {
 		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
 			if (currentToken + 1 < tokens.size() && tokens.get(currentToken + 1).getValue().equals("(")) {
 				RULE_CALL_METHOD();
-			} else {
+			}else if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("inputln")) {
+				if (currentToken + 1 < tokens.size() && tokens.get(currentToken + 1).getValue().equals("(")) {
+					RULE_INPUTLN();
+				} else {
+					logParseRule("IDENTIFIER: " + tokens.get(currentToken).getValue());
+					currentToken++;
+				}
+			}else {
 				logParseRule("IDENTIFIER: " + tokens.get(currentToken).getValue());
 				currentToken++;
 			}
@@ -2398,12 +2397,6 @@ public class TheParser {
 				tokens.get(currentToken).getValue().equals("println");
 	}
 
-	private boolean isInputlnStatement() {
-		return currentToken < tokens.size() &&
-				tokens.get(currentToken).getType().equals("KEYWORD") &&
-				tokens.get(currentToken).getValue().equals("inputln");
-	}
-
 	private boolean isType() {
 		return tokens.get(currentToken).getType().equals("KEYWORD") &&
 				(tokens.get(currentToken).getValue().equals("int") ||
@@ -2478,6 +2471,12 @@ public class TheParser {
 	private boolean isSwitchStatement() {
 		return tokens.get(currentToken).getType().equals("KEYWORD") &&
 				tokens.get(currentToken).getValue().equals("switch");
+	}
+
+	private boolean isInputlnStatement() {
+		return currentToken < tokens.size() &&
+				tokens.get(currentToken).getType().equals("KEYWORD") &&
+				tokens.get(currentToken).getValue().equals("inputln");
 	}
 
 	public TheSemantic getSemantic() {

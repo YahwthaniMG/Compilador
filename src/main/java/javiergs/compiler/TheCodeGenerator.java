@@ -328,6 +328,21 @@ public class TheCodeGenerator {
     }
 
     /**
+     * Generates code for inputln statement
+     */
+    public void generateInputln() {
+        intermediateCode.add("opr 22, 0"); // Input operation
+    }
+
+    /**
+     * Metodo específico para do-while loops
+     */
+    public void generateDoWhileConditionalJump(String startLabel) {
+        // En do-while: si la condición es true (1), volver al inicio
+        intermediateCode.add("jmc " + startLabel + ", 1");
+    }
+
+    /**
      * Checks if a value is a literal
      */
     private boolean isLiteral(String value) {

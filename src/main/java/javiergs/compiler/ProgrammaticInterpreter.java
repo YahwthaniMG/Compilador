@@ -260,6 +260,29 @@ public class ProgrammaticInterpreter {
             case 21: // Print with newline
                 compilerUI.writeScreenArea(register_zero.pop().getValue().toString() + "\n");
                 break;
+
+            case 22: // inputln - leer input del usuario
+                String inputValue = compilerUI.readInputLine();
+
+                // Determinar automáticamente el tipo del input
+                try {
+                    // Intentar convertir a entero
+                    int intValue = Integer.parseInt(inputValue);
+                    register_zero.push(newSymbolForTypeAndValue("int", inputValue));
+                    compilerUI.writeConsoleArea("INPUT processed as integer: " + intValue);
+                } catch (NumberFormatException e1) {
+                    try {
+                        // Intentar convertir a float
+                        float floatValue = Float.parseFloat(inputValue);
+                        register_zero.push(newSymbolForTypeAndValue("float", inputValue));
+                        compilerUI.writeConsoleArea("INPUT processed as float: " + floatValue);
+                    } catch (NumberFormatException e2) {
+                        // Si no es número, tratarlo como string
+                        register_zero.push(newSymbolForTypeAndValue("string", inputValue));
+                        compilerUI.writeConsoleArea("INPUT processed as string: " + inputValue);
+                    }
+                }
+                break;
             default:
                 compilerUI.writeConsoleArea("Unknown operation: " + operation);
         }

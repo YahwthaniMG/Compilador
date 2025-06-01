@@ -41,6 +41,10 @@ public class CompilerUI extends JFrame implements ActionListener {
 	private JTextArea screenArea;
 	private JTextArea consoleArea;
 
+	private JTextArea inputArea;
+	private String[] inputLines = null;
+	private int currentInputLine = 0;
+
 	// Interpreter programático (sin UI) para ejecución automática
 	private ProgrammaticInterpreter progInterpreter;
 
@@ -176,15 +180,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		}
 	}
 
-	// Método para limpiar las nuevas áreas
-	private void clearScreenAndConsole() {
-		if (screenArea != null) {
-			screenArea.setText("");
-		}
-		if (consoleArea != null) {
-			consoleArea.setText("");
-		}
-	}
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
@@ -223,6 +218,10 @@ public class CompilerUI extends JFrame implements ActionListener {
 			}
 
 			try {
+				// Cargar datos de input antes de ejecutar
+				if (inputArea != null) {
+					setInputData(inputArea.getText());
+				}
 				// Crear el lexer con el texto del editor
 				TheLexer lex = new TheLexer(editor.getText());
 				lex.run();
@@ -312,6 +311,42 @@ public class CompilerUI extends JFrame implements ActionListener {
 		menuBar.add(menuRun);
 		setJMenuBar(menuBar);
 	}
+	public void setInputData(String input) {
+		if (input != null && !input.trim().isEmpty()) {
+			inputLines = input.split("\n");
+			currentInputLine = 0;
+			writeConsoleArea("Input data loaded: " + inputLines.length + " lines");
+		} else {
+			inputLines = null;
+			currentInputLine = 0;
+			writeConsoleArea("No input data provided");
+		}
+	}
+
+	public String readInputLine() {
+		if (inputLines != null && currentInputLine < inputLines.length) {
+			String line = inputLines[currentInputLine].trim();
+			currentInputLine++;
+			writeConsoleArea("INPUT READ: " + line);
+			return line;
+		}
+		writeConsoleArea("INPUT READ: (no more input available, returning 0)");
+		return "0"; // Valor por defecto
+	}
+
+	// Método para limpiar el input también
+	private void clearScreenAndConsole() {
+		if (screenArea != null) {
+			screenArea.setText("");
+		}
+		if (consoleArea != null) {
+			consoleArea.setText("");
+		}
+		// Resetear input
+		currentInputLine = 0;
+		inputLines = null;
+	}
+
 
 	private void createGUI() {
 		TitledBorder panelTitle;
@@ -325,8 +360,9 @@ public class CompilerUI extends JFrame implements ActionListener {
 		JPanel codePanel = new JPanel(new GridLayout(1, 1));
 
 		// Panel para Screen & Console
-		JPanel screenConsolePanel = new JPanel(new GridLayout(2, 1));
+		JPanel screenConsolePanel = new JPanel(new GridLayout(3, 1));
 		JPanel screenSubPanel = new JPanel(new GridLayout(1, 1));
+		JPanel inputSubPanel = new JPanel(new GridLayout(1, 1));
 		JPanel consoleSubPanel = new JPanel(new GridLayout(1, 1));
 
 		// screen
@@ -336,6 +372,18 @@ public class CompilerUI extends JFrame implements ActionListener {
 		editor.setEditable(true);
 		JScrollPane scrollScreen = new JScrollPane(editor);
 		screenPanel.add(scrollScreen);
+
+		// Input area
+		panelTitle = BorderFactory.createTitledBorder("Program Input (one value per line)");
+		inputSubPanel.setBorder(panelTitle);
+		inputArea = new JTextArea();
+		inputArea.setEditable(true);
+		inputArea.setBackground(Color.lightGray);
+		inputArea.setForeground(Color.black);
+		inputArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+		inputArea.setText("5\n10\n15\n"); // Valores de ejemplo
+		JScrollPane scrollInputArea = new JScrollPane(inputArea);
+		inputSubPanel.add(scrollInputArea);
 
 		// tokens
 		panelTitle = BorderFactory.createTitledBorder("Lexical Analysis");
@@ -422,6 +470,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 
 		// Combinar screen y console
 		screenConsolePanel.add(screenSubPanel);
+		screenConsolePanel.add(inputSubPanel);
 		screenConsolePanel.add(consoleSubPanel);
 
 		// tabs
@@ -444,4 +493,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		// editor hotkey
 		menuCompiler.setAccelerator(KeyStroke.getKeyStroke('R', InputEvent.CTRL_DOWN_MASK));
 	}
+
+
 }
