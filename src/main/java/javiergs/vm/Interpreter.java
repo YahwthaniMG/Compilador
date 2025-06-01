@@ -1,5 +1,6 @@
 package javiergs.vm;
 
+import java.awt.*;
 import java.io.IOException;
 import java.util.*;
 
@@ -16,6 +17,7 @@ public class Interpreter {
 	private final Vector<Instruction> instructions;
 	private final Stack<Symbol> register_zero;
 	private final InterpreterUI gui;
+	public Label editor;
 	private boolean exit = false;
 	private int pc;
 	

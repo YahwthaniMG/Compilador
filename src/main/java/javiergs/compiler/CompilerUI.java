@@ -23,9 +23,6 @@ import java.util.Vector;
  * Now integrated with the Virtual Machine for automatic execution
  *
  * @author javiergs
- * @author eduardomv
- * @author santiarr
- * @author yawham
  * @version 1.3
  */
 public class CompilerUI extends JFrame implements ActionListener {
@@ -36,7 +33,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 	private JTable semanticTable;
 	private JMenuItem menuOpen = new JMenuItem("Open ...");
 	private JMenuItem menuCompiler = new JMenuItem("Compile & Run");
-	private JMenuItem menuDebug = new JMenuItem("Debug");
 	private JTree tree;
 	private JPanel treePanel = new JPanel(new GridLayout(1, 1));
 	private JTextArea parseTreeArea;
@@ -44,10 +40,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 	// Screen y Console para la pestaña adicional
 	private JTextArea screenArea;
 	private JTextArea consoleArea;
-
-	// Para el debug y ejecución
-	private Interpreter interpreter;
-	private String lastGeneratedCode = "";
 
 	// Interpreter programático (sin UI) para ejecución automática
 	private ProgrammaticInterpreter progInterpreter;
@@ -152,8 +144,18 @@ public class CompilerUI extends JFrame implements ActionListener {
 			codeText.append(line).append("\n");
 		}
 		codeArea.setText(codeText.toString());
-		// Guardar el código generado
-		lastGeneratedCode = codeText.toString();
+
+		// EJECUTAR AUTOMÁTICAMENTE EL CÓDIGO
+		if (!codeText.toString().trim().isEmpty()) {
+			writeConsole("Executing program...");
+			writeConsoleArea("=== PROGRAM EXECUTION ===");
+
+			// Ejecutar el código intermedio generado
+			progInterpreter.executeCode(codeText.toString());
+
+			writeConsole("Program execution completed.");
+			writeConsoleArea("=== EXECUTION COMPLETED ===");
+		}
 	}
 
 	private void clearTokenTable() {
@@ -163,7 +165,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 	}
 
 	private void clearSemanticTable() {
-		int ta = ((DefaultTableModel) semanticTable.getRowCount());
+		int ta = ((DefaultTableModel) semanticTable.getModel()).getRowCount();
 		for (int i = 0; i < ta; i++)
 			((DefaultTableModel) semanticTable.getModel()).removeRow(0);
 	}
@@ -181,90 +183,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		}
 		if (consoleArea != null) {
 			consoleArea.setText("");
-		}
-	}
-
-	// Método para compilar (extraído para reutilizar en compile y debug)
-	private boolean compileCode() {
-		clearTokenTable();
-		clearSemanticTable();
-		clearParseTree();
-		clearScreenAndConsole();
-		console.setText("");
-		codeArea.setText("");
-
-		// lexical analysis
-		if (editor.getText().equals("")) {
-			writeConsole("The file is empty");
-			return false;
-		}
-
-		try {
-			writeConsole("Starting compilation...");
-
-			// Crear el lexer con el texto del editor
-			TheLexer lex = new TheLexer(editor.getText());
-			lex.run();
-			Vector<TheToken> tokens = lex.getTokens();
-
-			// show token in a table
-			writeTokenTable(tokens);
-
-			// counting errors
-			int errors = 0;
-			for (TheToken token : tokens) {
-				if (token.getType().equals("ERROR")) {
-					errors++;
-				}
-			}
-
-			// show stats on console
-			writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
-			writeConsole(errors + " strings do not match any rule");
-
-			if (errors > 0) {
-				writeConsole("Compilation failed due to lexical errors.");
-				return false;
-			}
-
-			// Análisis sintáctico
-			writeConsole("Starting syntax analysis...");
-			TheParser parser = new TheParser(tokens);
-			parser.run();
-
-			//Mostrar parse tree
-			writeParseTree(parser.getParseTreeLog());
-
-			// Análisis semántico
-			writeConsole("Starting semantic analysis...");
-			TheSemantic semantic = parser.getSemantic();
-			if (semantic != null) {
-				writeSymbolTable(semantic.getSymbolTable());
-
-				// Mostrar errores semánticos en la consola
-				if (semantic.hasErrors()) {
-					writeConsole("Semantic errors found:");
-					for (String error : semantic.getSemanticErrors()) {
-						writeConsole(error);
-					}
-					return false;
-				} else {
-					writeConsole("No semantic errors found.");
-				}
-			}
-
-			//Generación de código intermedio
-			writeConsole("Generating intermediate code...");
-			Vector<String> intermediateCode = parser.getIntermediateCode();
-			writeIntermediateCode(intermediateCode);
-			writeConsole("Intermediate code generated successfully.");
-			writeConsole("Compilation completed successfully!");
-
-			return true;
-
-		} catch (IOException ex) {
-			writeConsole("Error during compilation: " + ex.getMessage());
-			return false;
 		}
 	}
 
@@ -291,42 +209,76 @@ public class CompilerUI extends JFrame implements ActionListener {
 			}
 		} else if (menuCompiler.equals(e.getSource())) {
 			// Compile & Run
-			if (compileCode()) {
-				if (!lastGeneratedCode.trim().isEmpty()) {
-					writeConsole("Executing program...");
-					writeConsoleArea("=== PROGRAM EXECUTION ===");
+			clearTokenTable();
+			clearSemanticTable();
+			clearParseTree();
+			clearScreenAndConsole();
+			console.setText("");
+			codeArea.setText("");
 
-					// Ejecutar automáticamente el código intermedio
-					progInterpreter.executeCode(lastGeneratedCode);
-
-					writeConsole("Program execution completed.");
-					writeConsoleArea("=== EXECUTION COMPLETED ===");
-				} else {
-					writeConsole("No intermediate code generated. Cannot execute.");
-				}
+			// lexical analysis
+			if (editor.getText().equals("")) {
+				writeConsole("The file is empty");
+				return;
 			}
-		} else if (menuDebug.equals(e.getSource())) {
-			// Debug mode
-			writeConsole("Starting debug mode...");
 
-			if (compileCode()) {
-				if (!lastGeneratedCode.trim().isEmpty()) {
-					writeConsole("Opening interpreter for debugging...");
+			try {
+				// Crear el lexer con el texto del editor
+				TheLexer lex = new TheLexer(editor.getText());
+				lex.run();
+				Vector<TheToken> tokens = lex.getTokens();
 
-					// Crear nueva instancia del interpreter si no existe
-					if (interpreter == null) {
-						interpreter = new Interpreter();
+				// show token in a table
+				writeTokenTable(tokens);
+
+				// counting errors
+				int errors = 0;
+				for (TheToken token : tokens) {
+					if (token.getType().equals("ERROR")) {
+						errors++;
 					}
-
-					// Poner el código en el editor del interpreter
-					interpreter.editor.setText(lastGeneratedCode);
-
-					writeConsole("Code loaded in interpreter editor. Click 'Load' in the interpreter window, then use 'run one step' to debug.");
-				} else {
-					writeConsole("No intermediate code generated. Cannot start debug mode.");
 				}
-			} else {
-				writeConsole("Compilation failed. Cannot start debug mode.");
+
+				// show stats on console
+				writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
+				writeConsole(errors + " strings do not match any rule");
+
+				if (errors > 0) {
+					writeConsole("Compilation failed due to lexical errors.");
+					return;
+				}
+
+				// Análisis sintáctico
+				TheParser parser = new TheParser(tokens);
+				parser.run();
+
+				//Mostrar parse tree
+				writeParseTree(parser.getParseTreeLog());
+
+				// Análisis semántico
+				TheSemantic semantic = parser.getSemantic();
+				if (semantic != null) {
+					writeSymbolTable(semantic.getSymbolTable());
+
+					// NO FALLAR POR ERRORES SEMÁNTICOS - solo mostrarlos
+					if (semantic.hasErrors()) {
+						writeConsole("Semantic warnings found:");
+						for (String error : semantic.getSemanticErrors()) {
+							writeConsole("WARNING: " + error);
+						}
+						// Continuar con la generación de código
+					} else {
+						writeConsole("No semantic errors found.");
+					}
+				}
+
+				//Generación de código intermedio (SIEMPRE se ejecuta)
+				Vector<String> intermediateCode = parser.getIntermediateCode();
+				writeIntermediateCode(intermediateCode); // Esto ejecuta automáticamente
+				writeConsole("Compilation and execution completed!");
+
+			} catch (IOException ex) {
+				writeConsole("Error during compilation: " + ex.getMessage());
 			}
 		}
 	}
@@ -352,11 +304,9 @@ public class CompilerUI extends JFrame implements ActionListener {
 
 		menuOpen.addActionListener(this);
 		menuCompiler.addActionListener(this);
-		menuDebug.addActionListener(this);
 
 		menuFile.add(menuOpen);
 		menuRun.add(menuCompiler);
-		menuRun.add(menuDebug);
 
 		menuBar.add(menuFile);
 		menuBar.add(menuRun);
@@ -491,8 +441,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 		add(topPanel, BorderLayout.CENTER);
 		add(downPanel, BorderLayout.SOUTH);
 
-		// editor hotkeys
+		// editor hotkey
 		menuCompiler.setAccelerator(KeyStroke.getKeyStroke('R', InputEvent.CTRL_DOWN_MASK));
-		menuDebug.setAccelerator(KeyStroke.getKeyStroke('D', InputEvent.CTRL_DOWN_MASK));
 	}
 }

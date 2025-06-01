@@ -2485,52 +2485,71 @@ public class TheParser {
 	}
 
 	private String evaluateExpression() {
-		int startToken = currentToken;
-		int saveCurrentToken = currentToken; // Guardar posición actual
+		int saveToken = currentToken;
 
-		try {
-			// Primero intentar evaluar la expresión sin avanzar el parser
-			String result = evaluateExpressionHelper(startToken);
-			return result;
-		} finally {
-			// Restaurar la posición del token después de la evaluación
-			currentToken = saveCurrentToken;
-			// Ahora sí procesar la expresión normalmente
-			RULE_EXPRESSION();
-		}
+		// Primero hacer el análisis de tipos sin mover currentToken
+		String resultType = analyzeExpressionForType();
+
+		// Restaurar posición y hacer el parsing normal
+		currentToken = saveToken;
+		RULE_EXPRESSION();
+
+		return resultType;
 	}
 
-	private String evaluateExpressionHelper(int startPos) {
-		if (startPos >= tokens.size()) {
-			return null;
-		}
+	private String analyzeExpressionForType() {
+		int pos = currentToken;
 
-		// Para expresiones simples como literals
-		String tokenType = tokens.get(startPos).getType();
-		String tokenValue = tokens.get(startPos).getValue();
+		// Buscar operadores de comparación en los próximos tokens
+		while (pos < tokens.size() && pos < currentToken + 10) {
+			String tokenValue = tokens.get(pos).getValue();
 
-		// Caso: literal directo
-		switch (tokenType) {
-			case "INTEGER":
-				return "int";
-			case "FLOAT":
-				return "float";
-			case "STRING":
-				return "string";
-			case "CHAR":
-				return "char";
-			case "KEYWORD":
-				if (tokenValue.equals("true") || tokenValue.equals("false")) {
-					return "boolean";
-				}
+			// Si encontramos un operador de comparación, el resultado es boolean
+			if (tokenValue.equals(">") || tokenValue.equals("<") ||
+					tokenValue.equals("==") || tokenValue.equals("!=") ||
+					tokenValue.equals(">=") || tokenValue.equals("<=")) {
+				return "boolean";
+			}
+
+			// Si encontramos un operador lógico, el resultado es boolean
+			if (tokenValue.equals("&&") || tokenValue.equals("||")) {
+				return "boolean";
+			}
+
+			// Si encontramos delimitadores, parar
+			if (tokenValue.equals(")") || tokenValue.equals(";") || tokenValue.equals(",")) {
 				break;
-			case "IDENTIFIER":
-				// Buscar el tipo de la variable en la tabla de símbolos
-				return semantic.checkVariableUsage(tokenValue, tokens.get(startPos).getLineNumber());
+			}
+
+			pos++;
 		}
 
-		// Para expresiones más complejas, necesitamos analizar la estructura
-		return evaluateComplexExpression(startPos);
+		// Si no hay operadores de comparación, evaluar el primer token
+		if (currentToken < tokens.size()) {
+			String tokenType = tokens.get(currentToken).getType();
+			String tokenValue = tokens.get(currentToken).getValue();
+
+			switch (tokenType) {
+				case "INTEGER":
+					return "int";
+				case "FLOAT":
+					return "float";
+				case "STRING":
+					return "string";
+				case "CHAR":
+					return "char";
+				case "KEYWORD":
+					if (tokenValue.equals("true") || tokenValue.equals("false")) {
+						return "boolean";
+					}
+					break;
+				case "IDENTIFIER":
+					// Buscar el tipo de la variable en la tabla de símbolos
+					return semantic.checkVariableUsage(tokenValue, tokens.get(currentToken).getLineNumber());
+			}
+		}
+
+		return "int"; // Valor por defecto
 	}
 
 	private String evaluateComplexExpression(int startPos) {
