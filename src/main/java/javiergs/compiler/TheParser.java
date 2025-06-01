@@ -26,6 +26,7 @@ public class TheParser {
 	private Map<String, Set<String>> followSets;
 
 	private TheSemantic semantic;
+	private TheCodeGenerator codeGenerator;
 	private String currentMethodReturnType = null;
 
 	private Vector<String> parseTreeLog = new Vector<>();
@@ -35,6 +36,7 @@ public class TheParser {
 		this.tokens = tokens;
 		currentToken = 0;
 		this.semantic = new TheSemantic();
+		this.codeGenerator = new TheCodeGenerator();
 		initializeFirstAndFollowSets();
 	}
 
@@ -789,7 +791,7 @@ public class TheParser {
 					}
 				}
 
-				//Capturar el valor antes de evaluar la expresión
+				// Capturar el valor antes de evaluar la expresión
 				String assignedValue = null;
 				if (currentToken < tokens.size()) {
 					assignedValue = tokens.get(currentToken).getValue();
@@ -800,15 +802,19 @@ public class TheParser {
 				String expressionType = evaluateExpression();
 				if (variableType != null && expressionType != null) {
 					semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
-					//Asignar el valor real a la variable
+
+					// Asignar el valor real a la variable
 					if (assignedValue != null && variableName != null) {
 						semantic.setVariableValue(variableName, assignedValue, tokens.get(currentToken).getLineNumber());
+
+						// GENERACIÓN DE CÓDIGO: Variable con inicialización
+						codeGenerator.generateVariableDeclaration(variableName, assignedValue);
 					}
 				}
 			}
+			// Si no hay inicialización, la variable se declara con valor por defecto (ya está en la tabla de símbolos)
 		} else {
 			error(502);
-			// Recovery logic...
 			while (currentToken < tokens.size() &&
 					!tokens.get(currentToken).getValue().equals(";") &&
 					!isInFollowSetOf("VARIABLE")) {
@@ -822,6 +828,7 @@ public class TheParser {
 	private void RULE_ASSIGNMENT() {
 		logParseRule("--- RULE_ASSIGNMENT");
 		indentLevel++;
+
 		if (!isInFirstSetOf("ASSIGNMENT")) {
 			boolean foundFirst = skipUntilFirstOrFollow("ASSIGNMENT", 600);
 			if (!foundFirst) {
@@ -851,14 +858,23 @@ public class TheParser {
 					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 601);
 					if (!foundFirst) {
 						System.out.println("Recovered: Missing expression in assignment");
+						indentLevel--;
 						return;
 					}
 				}
+
+				// Generar código para la expresión y asignación
+				String assignmentValue = generateExpressionCode();
 
 				// Evaluar la expresión y verificar compatibilidad de tipos
 				String expressionType = evaluateExpression();
 				if (variableType != null && expressionType != null) {
 					semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
+
+					// GENERACIÓN DE CÓDIGO: Asignación
+					if (assignmentValue != null && variableName != null) {
+						codeGenerator.generateAssignment(variableName, assignmentValue);
+					}
 				}
 			} else {
 				error(602);
@@ -2230,6 +2246,45 @@ public class TheParser {
 		indentLevel--;
 	}
 
+	//Metodo para manejar println
+	private void RULE_PRINTLN() {
+		logParseRule("RULE_PRINTLN");
+		indentLevel++;
+
+		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("println")) {
+			currentToken++;
+			logParseRule("println");
+
+			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("(")) {
+				currentToken++;
+				logParseRule("(");
+
+				// Capturar el valor a imprimir
+				String printValue = null;
+				if (currentToken < tokens.size()) {
+					printValue = tokens.get(currentToken).getValue();
+					logParseRule("PARAMETER: " + printValue);
+
+					// GENERACIÓN DE CÓDIGO: println
+					codeGenerator.generatePrintln(printValue);
+				}
+
+				RULE_EXPRESSION(); // Procesar la expresión
+
+				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
+					currentToken++;
+					logParseRule(")");
+				} else {
+					error(1501);
+				}
+			} else {
+				error(1502);
+			}
+		}
+
+		indentLevel--;
+	}
+
 	private boolean isType() {
 		return tokens.get(currentToken).getType().equals("KEYWORD") &&
 				(tokens.get(currentToken).getValue().equals("int") ||
@@ -2348,5 +2403,40 @@ public class TheParser {
 		String indent = "  ".repeat(indentLevel);
 		parseTreeLog.add(indent + ruleName);
 		System.out.println(ruleName);
+	}
+	//Getter para el generador de código
+	public TheCodeGenerator getCodeGenerator() {
+		return codeGenerator;
+	}
+
+	//Metodo para finalizar la generación de código
+	public Vector<String> getIntermediateCode() {
+		codeGenerator.setSymbolTable(semantic.getSymbolTable());
+		return codeGenerator.generateCode();
+	}
+
+	//Metodo para generar código de expresiones
+	private String generateExpressionCode() {
+		// Para expresiones simples, retornar el valor del token actual
+		if (currentToken < tokens.size()) {
+			String tokenType = tokens.get(currentToken).getType();
+			String tokenValue = tokens.get(currentToken).getValue();
+
+			switch (tokenType) {
+				case "INTEGER":
+				case "FLOAT":
+				case "STRING":
+				case "CHAR":
+					return tokenValue;
+				case "IDENTIFIER":
+					return tokenValue;
+				case "KEYWORD":
+					if (tokenValue.equals("true") || tokenValue.equals("false")) {
+						return tokenValue;
+					}
+					break;
+			}
+		}
+		return null;
 	}
 }

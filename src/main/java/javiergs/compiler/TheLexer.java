@@ -36,7 +36,7 @@ public class TheLexer {
     private Automata dfa;
     private Vector<TheToken> tokens;
     private static final Set<String> keywords = new HashSet<>(Arrays.asList(
-            "int", "end", "if", "else", "while", "do", "for", "break", "continue", "class", "float", "true", "false", "string", "char", "void", "boolean", "return", "switch", "case", "default"
+            "int", "end", "if", "else", "while", "do", "for", "break", "continue", "class", "float", "true", "false", "string", "char", "void", "boolean", "return", "switch", "case", "default", "println", "inputln"
     ));
 
     /**

@@ -97,12 +97,19 @@ public class CompilerUI extends JFrame implements ActionListener {
 		StringBuilder treeText = new StringBuilder();
 		treeText.append("Parse Tree:\n");
 		treeText.append("===========\n\n");
-
 		for (String rule : parseTree) {
 			treeText.append(rule).append("\n");
 		}
-
 		parseTreeArea.setText(treeText.toString());
+	}
+
+	// NUEVO: Metodo para escribir código intermedio
+	private void writeIntermediateCode(Vector<String> code) {
+		StringBuilder codeText = new StringBuilder();
+		for (String line : code) {
+			codeText.append(line).append("\n");
+		}
+		codeArea.setText(codeText.toString());
 	}
 
 	private void clearTokenTable() {
@@ -199,6 +206,10 @@ public class CompilerUI extends JFrame implements ActionListener {
 						writeConsole("No semantic errors found.");
 					}
 				}
+				//Generación de código intermedio
+				Vector<String> intermediateCode = parser.getIntermediateCode();
+				writeIntermediateCode(intermediateCode);
+				writeConsole("Intermediate code generated successfully.");
 
 			} catch (IOException ex) {
 				writeConsole("Error during lexical analysis: " + ex.getMessage());
