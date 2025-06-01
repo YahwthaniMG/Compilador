@@ -1,6 +1,5 @@
 package javiergs.compiler;
 
-import javiergs.vm.Interpreter;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -19,10 +18,10 @@ import java.util.Hashtable;
 import java.util.Vector;
 
 /**
- * User Interface for the Compiler including five tabs: Lexer, Parser, Semantic Analyzer, Intermediate Code, and Screen & Console
+ * User Interface for the Compiler including four tabs: Lexer, Parser, Semantic Analyzer and Intermediate Code
  *
  * @author javiergs
- * @version 1.2
+ * @version 1.1
  */
 public class CompilerUI extends JFrame implements ActionListener {
 
@@ -32,18 +31,9 @@ public class CompilerUI extends JFrame implements ActionListener {
 	private JTable semanticTable;
 	private JMenuItem menuOpen = new JMenuItem("Open ...");
 	private JMenuItem menuCompiler = new JMenuItem("Compile");
-	private JMenuItem menuDebug = new JMenuItem("Debug");
 	private JTree tree;
 	private JPanel treePanel = new JPanel(new GridLayout(1, 1));
 	private JTextArea parseTreeArea;
-
-	// NUEVOS: Screen y Console para la pestaña adicional
-	private JTextArea screenArea;
-	private JTextArea consoleArea;
-
-	// NUEVO: Para el debug
-	private Interpreter interpreter;
-	private String lastGeneratedCode = "";
 
 	public CompilerUI() {
 		createMenu();
@@ -55,7 +45,7 @@ public class CompilerUI extends JFrame implements ActionListener {
 		try {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		} catch (ClassNotFoundException | IllegalAccessException | InstantiationException |
-				 UnsupportedLookAndFeelException e) {
+						 UnsupportedLookAndFeelException e) {
 		}
 		// run
 		CompilerUI gui = new CompilerUI();
@@ -73,29 +63,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 
 	public void writeConsole(String msg) {
 		console.append(msg + "\n");
-		// NUEVO: También escribir en la nueva consola
-		writeConsoleArea(msg);
-	}
-
-	// NUEVO: Método para escribir en la nueva área de consola
-	public void writeConsoleArea(String msg) {
-		if (consoleArea != null) {
-			consoleArea.append(msg + "\n");
-		}
-	}
-
-	// NUEVO: Método para escribir en la nueva área de pantalla
-	public void writeScreenArea(String msg) {
-		if (screenArea != null) {
-			screenArea.append(msg);
-		}
-	}
-
-	// NUEVO: Método para limpiar la pantalla
-	public void clearScreen() {
-		if (screenArea != null) {
-			screenArea.setText("");
-		}
 	}
 
 	private void writeEditor(String msg) {
@@ -136,14 +103,13 @@ public class CompilerUI extends JFrame implements ActionListener {
 		parseTreeArea.setText(treeText.toString());
 	}
 
+	// NUEVO: Metodo para escribir código intermedio
 	private void writeIntermediateCode(Vector<String> code) {
 		StringBuilder codeText = new StringBuilder();
 		for (String line : code) {
 			codeText.append(line).append("\n");
 		}
 		codeArea.setText(codeText.toString());
-		// NUEVO: Guardar el código generado para debug
-		lastGeneratedCode = codeText.toString();
 	}
 
 	private void clearTokenTable() {
@@ -164,95 +130,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		}
 	}
 
-	// NUEVO: Método para limpiar las nuevas áreas
-	private void clearScreenAndConsole() {
-		if (screenArea != null) {
-			screenArea.setText("");
-		}
-		if (consoleArea != null) {
-			consoleArea.setText("");
-		}
-	}
-
-	// NUEVO: Método para compilar (extraído para reutilizar en debug)
-	private boolean compileCode() {
-		clearTokenTable();
-		clearSemanticTable();
-		clearParseTree();
-		clearScreenAndConsole();
-		console.setText("");
-		codeArea.setText("");
-
-		// lexical analysis
-		if (editor.getText().equals("")) {
-			writeConsole("The file is empty");
-			return false;
-		}
-
-		try {
-			// Crear el lexer con el texto del editor
-			TheLexer lex = new TheLexer(editor.getText());
-			lex.run();
-			Vector<TheToken> tokens = lex.getTokens();
-
-			// show token in a table
-			writeTokenTable(tokens);
-
-			// counting errors
-			int errors = 0;
-			for (TheToken token : tokens) {
-				if (token.getType().equals("ERROR")) {
-					errors++;
-				}
-			}
-
-			// show stats on console
-			writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
-			writeConsole(errors + " strings do not match any rule");
-
-			if (errors > 0) {
-				writeConsole("Compilation failed due to lexical errors.");
-				return false;
-			}
-
-			// Análisis sintáctico
-			TheParser parser = new TheParser(tokens);
-			parser.run();
-
-			//Mostrar parse tree
-			writeParseTree(parser.getParseTreeLog());
-
-			// Análisis semántico
-			TheSemantic semantic = parser.getSemantic();
-			if (semantic != null) {
-				writeSymbolTable(semantic.getSymbolTable());
-
-				// Mostrar errores semánticos en la consola
-				if (semantic.hasErrors()) {
-					writeConsole("Semantic errors found:");
-					for (String error : semantic.getSemanticErrors()) {
-						writeConsole(error);
-					}
-					return false;
-				} else {
-					writeConsole("No semantic errors found.");
-				}
-			}
-
-			//Generación de código intermedio
-			Vector<String> intermediateCode = parser.getIntermediateCode();
-			writeIntermediateCode(intermediateCode);
-			writeConsole("Intermediate code generated successfully.");
-			writeConsole("Compilation completed successfully!");
-
-			return true;
-
-		} catch (IOException ex) {
-			writeConsole("Error during compilation: " + ex.getMessage());
-			return false;
-		}
-	}
-
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		if (menuOpen.equals(e.getSource())) {
@@ -267,7 +144,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 				editor.setText("");
 				clearTokenTable();
 				clearSemanticTable();
-				clearScreenAndConsole();
 				try {
 					loadFile(file.getAbsolutePath());
 				} catch (IOException ex) {
@@ -275,30 +151,68 @@ public class CompilerUI extends JFrame implements ActionListener {
 				}
 			}
 		} else if (menuCompiler.equals(e.getSource())) {
-			compileCode();
-		} else if (menuDebug.equals(e.getSource())) {
-			// NUEVO: Funcionalidad de Debug
-			writeConsole("Starting debug mode...");
+			clearTokenTable();
+			clearSemanticTable();
+			clearParseTree();
+			console.setText("");
+			codeArea.setText("");
 
-			if (compileCode()) {
-				if (!lastGeneratedCode.trim().isEmpty()) {
-					writeConsole("Opening interpreter for debugging...");
+			// lexical analysis
+			if (editor.getText().equals("")) {
+				writeConsole("The file is empty");
+				return;
+			}
 
-					// Crear nueva instancia del interpreter si no existe
-					if (interpreter == null) {
-						interpreter = new Interpreter();
+			try {
+				// Crear el lexer con el texto del editor
+				TheLexer lex = new TheLexer(editor.getText());
+				lex.run();
+				Vector<TheToken> tokens = lex.getTokens();
+
+				// show token in a table
+				writeTokenTable(tokens);
+
+				// counting errors
+				int errors = 0;
+				for (TheToken token : tokens) {
+					if (token.getType().equals("ERROR")) {
+						errors++;
 					}
-
-					// Cargar el código en el interpreter
-					interpreter.init(lastGeneratedCode);
-
-					writeConsole("Code loaded in interpreter. You can now debug step by step.");
-					writeConsole("Use the interpreter window to debug your code.");
-				} else {
-					writeConsole("No intermediate code generated. Cannot start debug mode.");
 				}
-			} else {
-				writeConsole("Compilation failed. Cannot start debug mode.");
+
+				// show stats on console
+				writeConsole(tokens.size() + " strings found in " + tokens.get(tokens.size() - 1).getLineNumber() + " lines,");
+				writeConsole(errors + " strings do not match any rule");
+
+				// Análisis sintáctico
+				TheParser parser = new TheParser(tokens);
+				parser.run();
+
+				//Mostrar parse tree
+				writeParseTree(parser.getParseTreeLog());
+
+				// Análisis semántico
+				TheSemantic semantic = parser.getSemantic();
+				if (semantic != null) {
+					writeSymbolTable(semantic.getSymbolTable());
+
+					// Mostrar errores semánticos en la consola
+					if (semantic.hasErrors()) {
+						writeConsole("Semantic errors found:");
+						for (String error : semantic.getSemanticErrors()) {
+							writeConsole(error);
+						}
+					} else {
+						writeConsole("No semantic errors found.");
+					}
+				}
+				//Generación de código intermedio
+				Vector<String> intermediateCode = parser.getIntermediateCode();
+				writeIntermediateCode(intermediateCode);
+				writeConsole("Intermediate code generated successfully.");
+
+			} catch (IOException ex) {
+				writeConsole("Error during lexical analysis: " + ex.getMessage());
 			}
 		}
 	}
@@ -321,15 +235,10 @@ public class CompilerUI extends JFrame implements ActionListener {
 		JMenuBar menuBar = new JMenuBar();
 		JMenu menuFile = new JMenu("File");
 		JMenu menuRun = new JMenu("Run");
-
 		menuOpen.addActionListener(this);
 		menuCompiler.addActionListener(this);
-		menuDebug.addActionListener(this); // NUEVO: Agregar listener para debug
-
 		menuFile.add(menuOpen);
 		menuRun.add(menuCompiler);
-		menuRun.add(menuDebug); // NUEVO: Agregar opción de debug
-
 		menuBar.add(menuFile);
 		menuBar.add(menuRun);
 		setJMenuBar(menuBar);
@@ -345,12 +254,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		JPanel screenPanel = new JPanel(new GridLayout(1, 1));
 		JPanel consolePanel = new JPanel(new GridLayout(1, 1));
 		JPanel codePanel = new JPanel(new GridLayout(1, 1));
-
-		// NUEVO: Panel para Screen & Console
-		JPanel screenConsolePanel = new JPanel(new GridLayout(2, 1));
-		JPanel screenSubPanel = new JPanel(new GridLayout(1, 1));
-		JPanel consoleSubPanel = new JPanel(new GridLayout(1, 1));
-
 		// screen
 		panelTitle = BorderFactory.createTitledBorder("Source Code");
 		screenPanel.setBorder(panelTitle);
@@ -358,7 +261,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		editor.setEditable(true);
 		JScrollPane scrollScreen = new JScrollPane(editor);
 		screenPanel.add(scrollScreen);
-
 		// tokens
 		panelTitle = BorderFactory.createTitledBorder("Lexical Analysis");
 		tokenPanel.setBorder(panelTitle);
@@ -374,7 +276,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		tokensTable.setFillsViewportHeight(true);
 		tokenPanel.add(scrollRegistry);
 		tokensTable.setEnabled(false);
-
 		// console
 		panelTitle = BorderFactory.createTitledBorder("Console");
 		consolePanel.setBorder(panelTitle);
@@ -384,7 +285,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		console.setForeground(Color.white);
 		JScrollPane scrollConsole = new JScrollPane(console);
 		consolePanel.add(scrollConsole);
-
 		// tree
 		panelTitle = BorderFactory.createTitledBorder("Syntactical Analysis");
 		treePanel.setBorder(panelTitle);
@@ -393,7 +293,6 @@ public class CompilerUI extends JFrame implements ActionListener {
 		parseTreeArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
 		JScrollPane treeView = new JScrollPane(parseTreeArea);
 		treePanel.add(treeView);
-
 		// semantic
 		panelTitle = BorderFactory.createTitledBorder("Symbol Table");
 		semanticPanel.setBorder(panelTitle);
@@ -410,50 +309,19 @@ public class CompilerUI extends JFrame implements ActionListener {
 		semanticTable.setFillsViewportHeight(true);
 		semanticPanel.add(scrollSemantic);
 		semanticTable.setEnabled(false);
-
 		// code
 		panelTitle = BorderFactory.createTitledBorder("Intermediate Code");
 		codePanel.setBorder(panelTitle);
 		codeArea = new JTextArea();
 		JScrollPane scrollCode = new JScrollPane(codeArea);
 		codePanel.add(scrollCode);
-
-		// NUEVO: Screen & Console combinados
-		// Screen area
-		panelTitle = BorderFactory.createTitledBorder("Screen");
-		screenSubPanel.setBorder(panelTitle);
-		screenArea = new JTextArea();
-		screenArea.setEditable(false);
-		screenArea.setBackground(Color.black);
-		screenArea.setForeground(Color.white);
-		screenArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-		JScrollPane scrollScreenArea = new JScrollPane(screenArea);
-		screenSubPanel.add(scrollScreenArea);
-
-		// Console area
-		panelTitle = BorderFactory.createTitledBorder("Console Output");
-		consoleSubPanel.setBorder(panelTitle);
-		consoleArea = new JTextArea();
-		consoleArea.setEditable(false);
-		consoleArea.setBackground(Color.darkGray);
-		consoleArea.setForeground(Color.white);
-		consoleArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-		JScrollPane scrollConsoleArea = new JScrollPane(consoleArea);
-		consoleSubPanel.add(scrollConsoleArea);
-
-		// Combinar screen y console
-		screenConsolePanel.add(screenSubPanel);
-		screenConsolePanel.add(consoleSubPanel);
-
 		// tabs
 		JTabbedPane tabbedPane = new JTabbedPane();
 		tabbedPane.addTab("Lexer", tokenPanel);
 		tabbedPane.addTab("Parser", treePanel);
 		tabbedPane.addTab("Semantic Analyzer", semanticPanel);
 		tabbedPane.addTab("Intermediate Code", codePanel);
-		tabbedPane.addTab("Screen & Console", screenConsolePanel); // NUEVO: Agregar nueva pestaña
-		tabbedPane.setSelectedIndex(4); // NUEVO: Seleccionar la nueva pestaña por defecto
-
+		tabbedPane.setSelectedIndex(3);
 		// main frame
 		topPanel.add(screenPanel);
 		topPanel.add(tabbedPane);
@@ -461,10 +329,8 @@ public class CompilerUI extends JFrame implements ActionListener {
 		downPanel.setPreferredSize(new Dimension(getWidth(), getHeight() / 4));
 		add(topPanel, BorderLayout.CENTER);
 		add(downPanel, BorderLayout.SOUTH);
-
 		// editor hotkey
 		menuCompiler.setAccelerator(KeyStroke.getKeyStroke('C', InputEvent.CTRL_DOWN_MASK));
-		// NUEVO: Hotkey para debug
-		menuDebug.setAccelerator(KeyStroke.getKeyStroke('D', InputEvent.CTRL_DOWN_MASK));
 	}
+
 }
