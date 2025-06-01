@@ -38,8 +38,10 @@ public class TheCodeGenerator {
         // First, add symbol table entries
         generateSymbolTableEntries(completeCode);
 
-        // Add labels to symbol table
-        addLabelsToSymbolTable(completeCode);
+        // Add labels to symbol table ONLY if there are any
+        if (hasLabels()) {
+            addLabelsToSymbolTable(completeCode);
+        }
 
         // Add separator
         completeCode.add("@");
@@ -54,20 +56,40 @@ public class TheCodeGenerator {
     }
 
     /**
+     * Verificar si hay etiquetas en el código
+     */
+    private boolean hasLabels() {
+        for (String instruction : intermediateCode) {
+            if (instruction.endsWith(":")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Agregar etiquetas a la tabla de símbolos
      */
     private void addLabelsToSymbolTable(Vector<String> code) {
         int instructionNumber = 1; // Comenzar desde 1
 
-        // Contar instrucciones para asignar números a las etiquetas
+        // Primero, contar las instrucciones reales (sin etiquetas) para calcular posiciones
+        Map<String, Integer> labelPositions = new HashMap<>();
+        int realInstructionCount = 1;
+
         for (String instruction : intermediateCode) {
             if (instruction.endsWith(":")) {
-                // Es una etiqueta, agregar a la tabla de símbolos
+                // Es una etiqueta, guardar su posición
                 String labelName = instruction.substring(0, instruction.length() - 1);
-                code.add(labelName + ", int, global, " + instructionNumber);
+                labelPositions.put(labelName, realInstructionCount);
             } else {
-                instructionNumber++;
+                realInstructionCount++;
             }
+        }
+        // Agregar etiquetas a la tabla de símbolos con el formato correcto
+        for (Map.Entry<String, Integer> entry : labelPositions.entrySet()) {
+            // Formato correcto para VM: labelName, int, global, position
+            code.add(entry.getKey() + ", int, global, " + entry.getValue());
         }
     }
 
@@ -244,12 +266,22 @@ public class TheCodeGenerator {
     }
 
     /**
-     * Generates conditional jump
+     * Generates conditional jump - CORREGIDO para VM
+     * Para while: queremos saltar cuando la condición es FALSE
+     * Para if: queremos saltar cuando la condición es FALSE
      */
     public void generateConditionalJump(String label, String condition) {
-        // Para VM: jmc address, condition
-        // Si condition es "false", salta cuando el stack top es false (0)
-        intermediateCode.add("jmc " + label + ", " + condition);
+        if (condition.equals("false")) {
+            // Saltar cuando el resultado en el stack es 0 (false)
+            // JMC salta cuando el valor es igual al parámetro
+            intermediateCode.add("jmc " + label + ", 0");
+        } else if (condition.equals("true")) {
+            // Saltar cuando el resultado en el stack es 1 (true)
+            intermediateCode.add("jmc " + label + ", 1");
+        } else {
+            // Usar el valor tal como viene
+            intermediateCode.add("jmc " + label + ", " + condition);
+        }
     }
 
     /**
@@ -257,6 +289,23 @@ public class TheCodeGenerator {
      */
     public void generateJump(String label) {
         intermediateCode.add("jmp " + label + ", 0");
+    }
+
+    /**
+     * Metodo específico para while loops
+     */
+    public void generateWhileConditionalJump(String endLabel) {
+        // En while: si la condición es false (0), saltar al final
+        // La VM evalúa: si stack_top == 0, salta a endLabel
+        intermediateCode.add("jmc " + endLabel + ", 0");
+    }
+
+    /**
+     * Metodo específico para if statements
+     */
+    public void generateIfConditionalJump(String elseLabel) {
+        // En if: si la condición es false (0), saltar al else
+        intermediateCode.add("jmc " + elseLabel + ", 0");
     }
 
     /**

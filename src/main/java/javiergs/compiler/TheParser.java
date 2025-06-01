@@ -1064,20 +1064,28 @@ public class TheParser {
 	private void RULE_WHILE() {
 		logParseRule("--- RULE_WHILE");
 		indentLevel++;
+
 		if (!isInFirstSetOf("WHILE")) {
 			boolean foundFirst = skipUntilFirstOrFollow("WHILE", 900);
 			if (!foundFirst) {
-				logParseRule("Recovered: Skipping WHILE rule");
+				System.out.println("Recovered: Skipping WHILE rule");
 				indentLevel--;
 				return;
 			}
 		}
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("while")) {
 			currentToken++;
-			logParseRule("while");
+			logParseRule("--- while");
+
+			// GENERACIÓN DE CÓDIGO: Etiqueta del inicio del while
+			String whileStartLabel = codeGenerator.generateLabel();
+			codeGenerator.addLabel(whileStartLabel);
+
 			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("(")) {
 				currentToken++;
-				logParseRule("(");
+				logParseRule("--- (");
+
 				if (!isInFirstSetOf("EXPRESSION")) {
 					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 901);
 					if (!foundFirst) {
@@ -1086,36 +1094,75 @@ public class TheParser {
 								!tokens.get(currentToken).getValue().equals(")")) {
 							currentToken++;
 						}
+
 						if (currentToken < tokens.size()) {
 							currentToken++; // Skip the closing parenthesis
 							System.out.println("Recovered: Missing condition in while loop");
 						} else {
 							System.out.println("Recovered: Skipping malformed while loop");
+							indentLevel--;
 							return;
 						}
 					} else {
-						RULE_EXPRESSION();
+						// GENERACIÓN DE CÓDIGO: Evaluar condición del while
+						generateConditionCode();
+
+						// Evaluar la expresión de condición
+						String conditionType = evaluateExpression();
+
+						// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
+						semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
 					}
 				} else {
-					RULE_EXPRESSION();
+					// GENERACIÓN DE CÓDIGO: Evaluar condición del while
+					generateConditionCode();
+
+					// Evaluar la expresión de condición
+					String conditionType = evaluateExpression();
+
+					// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
+					semantic.checkBooleanExpression(conditionType, "while", tokens.get(currentToken).getLineNumber());
 				}
+
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
 					currentToken++;
-					logParseRule(")");
+					logParseRule("--- )");
+
+					// GENERACIÓN DE CÓDIGO: Salto condicional al final del while
+					String whileEndLabel = codeGenerator.generateLabel();
+					codeGenerator.generateConditionalJump(whileEndLabel, "false");
+
 					if (!isInFirstSetOf("STATEMENT_BLOCK")) {
 						boolean foundFirst = skipUntilFirstOrFollow("STATEMENT_BLOCK", 902);
 						if (!foundFirst) {
 							System.out.println("Recovered: Missing statement block in while loop");
+							indentLevel--;
 							return;
 						}
 					}
+
 					RULE_STATEMENT_BLOCK();
+
+					// GENERACIÓN DE CÓDIGO: Salto incondicional al inicio del while
+					codeGenerator.generateJump(whileStartLabel);
+
+					// GENERACIÓN DE CÓDIGO: Etiqueta del final del while
+					codeGenerator.addLabel(whileEndLabel);
+
 				} else {
-					error(903);
+					error(29);
 					// Try to recover by looking for a statement block
 					if (isInFirstSetOf("STATEMENT_BLOCK")) {
 						System.out.println("Recovered: Missing ')' in while condition");
+
+						// Generar etiquetas de recuperación
+						String whileEndLabel = codeGenerator.generateLabel();
+						codeGenerator.generateConditionalJump(whileEndLabel, "false");
+
 						RULE_STATEMENT_BLOCK();
+
+						codeGenerator.generateJump(whileStartLabel);
+						codeGenerator.addLabel(whileEndLabel);
 					} else {
 						// Skip to the next statement
 						while (currentToken < tokens.size() &&
@@ -1126,14 +1173,21 @@ public class TheParser {
 					}
 				}
 			} else {
-				error(904);
+				error(30);
 				// Try to recover by checking if there's an expression anyway
 				if (isInFirstSetOf("EXPRESSION")) {
 					System.out.println("Recovered: Missing '(' in while condition");
-					RULE_EXPRESSION();
+
+					// Generar código de recuperación
+					generateConditionCode();
+					evaluateExpression();
+
+					String whileEndLabel = codeGenerator.generateLabel();
+					codeGenerator.generateConditionalJump(whileEndLabel, "false");
+
 					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
 						currentToken++;
-						logParseRule(")");
+						logParseRule("--- )");
 						RULE_STATEMENT_BLOCK();
 					} else if (isInFirstSetOf("STATEMENT_BLOCK")) {
 						System.out.println("Recovered: Missing ')' in while condition");
@@ -1145,7 +1199,12 @@ public class TheParser {
 							currentToken++;
 						}
 						System.out.println("Recovered: Skipped malformed while loop");
+						indentLevel--;
+						return;
 					}
+
+					codeGenerator.generateJump(whileStartLabel);
+					codeGenerator.addLabel(whileEndLabel);
 				} else {
 					// Skip to the next statement
 					while (currentToken < tokens.size() &&
@@ -1156,8 +1215,9 @@ public class TheParser {
 				}
 			}
 		} else {
-			error(905);
+			error(31);
 		}
+
 		indentLevel--;
 	}
 
