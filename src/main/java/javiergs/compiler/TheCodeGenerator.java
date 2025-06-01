@@ -71,24 +71,21 @@ public class TheCodeGenerator {
      * Agregar etiquetas a la tabla de símbolos
      */
     private void addLabelsToSymbolTable(Vector<String> code) {
-        int instructionNumber = 1; // Comenzar desde 1
-
-        // Primero, contar las instrucciones reales (sin etiquetas) para calcular posiciones
+        int instructionNumber = 1;
         Map<String, Integer> labelPositions = new HashMap<>();
         int realInstructionCount = 1;
 
         for (String instruction : intermediateCode) {
             if (instruction.endsWith(":")) {
-                // Es una etiqueta, guardar su posición
                 String labelName = instruction.substring(0, instruction.length() - 1);
                 labelPositions.put(labelName, realInstructionCount);
             } else {
                 realInstructionCount++;
             }
         }
-        // Agregar etiquetas a la tabla de símbolos con el formato correcto
+
         for (Map.Entry<String, Integer> entry : labelPositions.entrySet()) {
-            // Formato correcto para VM: labelName, int, global, position
+            // Formato correcto: #labelName, int, global, position
             code.add(entry.getKey() + ", int, global, " + entry.getValue());
         }
     }

@@ -105,14 +105,18 @@ public class Interpreter {
 			gui.writeConsole("ERROR: trying to insert a variable into the symbol table.\n" + e);
 		}
 	}
-	
+
 	private void insert_symbol_table_label(String line) {
 		try {
 			int firstComma = line.indexOf(",");
 			int secondComma = line.indexOf(",", firstComma + 1);
+			int thirdComma = line.indexOf(",", secondComma + 1);
+
 			String symbolName = line.substring(0, firstComma).trim();
 			String symbolType = line.substring(firstComma + 1, secondComma).trim();
-			String symbolValue = line.substring(secondComma + 1).trim();
+			String symbolScope = line.substring(secondComma + 1, thirdComma).trim();
+			String symbolValue = line.substring(thirdComma + 1).trim();
+
 			Vector<Symbol> item = new Vector<Symbol>();
 			item.add(newSymbolForTypeAndValue("int", symbolValue));
 			symbolTable.put(symbolName, item);
