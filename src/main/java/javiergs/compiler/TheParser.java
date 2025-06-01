@@ -890,22 +890,46 @@ public class TheParser {
 					}
 				}
 
-				// GENERACIÓN DE CÓDIGO: Generar código para la expresión
-				String assignmentValue = generateExpressionCode();
+				// VERIFICAR SI ES inputln() DIRECTAMENTE
+				if (currentToken < tokens.size() &&
+						tokens.get(currentToken).getValue().equals("inputln") &&
+						currentToken + 1 < tokens.size() &&
+						tokens.get(currentToken + 1).getValue().equals("(")) {
 
-				// Evaluar la expresión y verificar compatibilidad de tipos
-				String expressionType = evaluateExpression();
-				if (variableType != null && expressionType != null) {
-					semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
+					// Generar código para inputln directamente
+					codeGenerator.generateInputln();
 
-					// GENERACIÓN DE CÓDIGO: Asignación
-					if (assignmentValue != null && variableName != null) {
-						// Para valores simples
-						codeGenerator.generateAssignment(variableName, assignmentValue);
-					} else {
-						// Para expresiones complejas, el código ya fue generado en generateExpressionCode
-						// Solo necesitamos guardar el resultado
-						codeGenerator.generateAssignmentFromStack(variableName);
+					// Procesar inputln() sintácticamente
+					currentToken++; // saltar "inputln"
+					logParseRule("inputln");
+					currentToken++; // saltar "("
+					logParseRule("(");
+					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
+						currentToken++; // saltar ")"
+						logParseRule(")");
+					}
+
+					// Almacenar el resultado en la variable
+					codeGenerator.generateAssignmentFromStack(variableName);
+
+				} else {
+					// GENERACIÓN DE CÓDIGO: Generar código para la expresión
+					String assignmentValue = generateExpressionCode();
+
+					// Evaluar la expresión y verificar compatibilidad de tipos
+					String expressionType = evaluateExpression();
+					if (variableType != null && expressionType != null) {
+						semantic.checkAssignment(variableType, expressionType, tokens.get(currentToken).getLineNumber());
+
+						// GENERACIÓN DE CÓDIGO: Asignación
+						if (assignmentValue != null && variableName != null) {
+							// Para valores simples
+							codeGenerator.generateAssignment(variableName, assignmentValue);
+						} else {
+							// Para expresiones complejas, el código ya fue generado en generateExpressionCode
+							// Solo necesitamos guardar el resultado
+							codeGenerator.generateAssignmentFromStack(variableName);
+						}
 					}
 				}
 			} else {
