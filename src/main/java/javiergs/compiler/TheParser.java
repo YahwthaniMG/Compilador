@@ -863,7 +863,7 @@ public class TheParser {
 
 		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
 			variableName = tokens.get(currentToken).getValue();
-			logParseRule("IDENTIFIER: " + variableName);
+			logParseRule("--- IDENTIFIER: " + variableName);
 
 			// ANÁLISIS SEMÁNTICO: Verificar que la variable existe
 			variableType = semantic.checkVariableUsage(variableName, tokens.get(currentToken).getLineNumber());
@@ -872,7 +872,7 @@ public class TheParser {
 
 			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("=")) {
 				currentToken++;
-				logParseRule("=");
+				logParseRule("--- =");
 
 				if (!isInFirstSetOf("EXPRESSION")) {
 					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 601);
@@ -883,7 +883,7 @@ public class TheParser {
 					}
 				}
 
-				// Generar código para la expresión y asignación
+				// GENERACIÓN DE CÓDIGO: Generar código para la expresión
 				String assignmentValue = generateExpressionCode();
 
 				// Evaluar la expresión y verificar compatibilidad de tipos
@@ -893,7 +893,12 @@ public class TheParser {
 
 					// GENERACIÓN DE CÓDIGO: Asignación
 					if (assignmentValue != null && variableName != null) {
+						// Para valores simples
 						codeGenerator.generateAssignment(variableName, assignmentValue);
+					} else {
+						// Para expresiones complejas, el código ya fue generado en generateExpressionCode
+						// Solo necesitamos guardar el resultado
+						codeGenerator.generateAssignmentFromStack(variableName);
 					}
 				}
 			} else {
@@ -1157,98 +1162,89 @@ public class TheParser {
 	}
 
 	private void RULE_IF() {
-		logParseRule("RULE_IF");
+		logParseRule("--- RULE_IF");
 		indentLevel++;
+
 		if (!isInFirstSetOf("IF")) {
 			boolean foundFirst = skipUntilFirstOrFollow("IF", 400);
-
 			if (!foundFirst) {
 				System.out.println("Recovered: Skipping IF rule");
 				indentLevel--;
 				return;
 			}
 		}
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("if")) {
 			currentToken++;
-			logParseRule("if");
+			logParseRule("--- if");
+
 			if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("(")) {
 				currentToken++;
-				logParseRule("(");
-				RULE_EXPRESSION();
+				logParseRule("--- (");
+
+				if (!isInFirstSetOf("EXPRESSION")) {
+					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 401);
+					if (!foundFirst) {
+						System.out.println("Recovered: Missing expression in if condition");
+						indentLevel--;
+						return;
+					}
+				} else {
+					// GENERACIÓN DE CÓDIGO: Evaluar condición del if
+					generateConditionCode();
+
+					// Evaluar la expresión de condición
+					String conditionType = evaluateExpression();
+
+					// ANÁLISIS SEMÁNTICO: Verificar que la condición sea booleana
+					semantic.checkBooleanExpression(conditionType, "if", tokens.get(currentToken).getLineNumber());
+				}
+
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
 					currentToken++;
-					logParseRule(")");
+					logParseRule("--- )");
+
+					// GENERACIÓN DE CÓDIGO: Salto condicional
+					String elseLabel = codeGenerator.generateLabel();
+					codeGenerator.generateConditionalJump(elseLabel, "false");
+
 					RULE_STATEMENT_BLOCK();
+
 					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("else")) {
 						currentToken++;
-						logParseRule("else");
+						logParseRule("--- else");
 
-						RULE_STATEMENT_BLOCK();
-					}
-				} else {
-					// Error: Missing closing parenthesis
-					boolean foundFollow = false;
-					while (currentToken < tokens.size()) {
-						if (isInFirstSetOf("STATEMENT_BLOCK")) {
-							foundFollow = true;
-							break;
-						}
-						currentToken++;
-					}
-					if (foundFollow) {
-						System.out.println("Recovered: Found statement block after missing ')'");
-						RULE_STATEMENT_BLOCK();
+						// GENERACIÓN DE CÓDIGO: Salto incondicional para saltar el else
+						String endLabel = codeGenerator.generateLabel();
+						codeGenerator.generateJump(endLabel);
 
-						if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("else")) {
-							currentToken++;
-							logParseRule("else");
+						// Colocar la etiqueta del else
+						codeGenerator.addLabel(elseLabel);
+
+						if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("if")) {
+							RULE_IF();
+						} else {
 							RULE_STATEMENT_BLOCK();
 						}
+
+						// Colocar la etiqueta del final
+						codeGenerator.addLabel(endLabel);
 					} else {
-						System.out.println("Recovered: Skipping IF statement due to syntax errors");
+						// Solo hay if, sin else
+						codeGenerator.addLabel(elseLabel);
 					}
+				} else {
+					error(402);
+					// Recovery logic...
 				}
 			} else {
-				// Error: Missing opening parenthesis
-				boolean foundFollow = false;
-				while (currentToken < tokens.size()) {
-					if (isInFirstSetOf("EXPRESSION")) {
-						foundFollow = true;
-						break;
-					}
-					currentToken++;
-				}
-				if (foundFollow) {
-					System.out.println("Recovered: Found expression after missing '('");
-					RULE_EXPRESSION();
-					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
-						currentToken++;
-						logParseRule(")");
-						RULE_STATEMENT_BLOCK();
-						if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("else")) {
-							currentToken++;
-							logParseRule("else");
-							RULE_STATEMENT_BLOCK();
-						}
-					} else {
-						// Continue recovery...
-						if (isInFirstSetOf("STATEMENT_BLOCK")) {
-							System.out.println("Recovered: Found statement block after expression");
-							RULE_STATEMENT_BLOCK();
-							if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("else")) {
-								currentToken++;
-								logParseRule("else");
-								RULE_STATEMENT_BLOCK();
-							}
-						}
-					}
-				} else {
-					System.out.println("Recovered: Skipping IF statement due to syntax errors");
-				}
+				error(403);
+				// Recovery logic...
 			}
 		} else {
-			error(401);
+			error(404);
 		}
+
 		indentLevel--;
 	}
 
@@ -2462,6 +2458,52 @@ public class TheParser {
 		return null;
 	}
 
+	private void generateConditionCode() {
+		// Guardar posición actual para análisis
+		int startPos = currentToken;
+
+		// Para x > 0, necesitamos generar:
+		// lod x, 0    (cargar x)
+		// lit 0, 0    (cargar 0)
+		// opr 11, 0   (operación mayor que)
+
+		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
+			String leftOperand = tokens.get(currentToken).getValue();
+			codeGenerator.generateLoad(leftOperand); // lod x, 0
+
+			// Buscar el operador
+			currentToken++; // Saltar identificador
+			if (currentToken < tokens.size() && isComparisonOperator(tokens.get(currentToken).getValue())) {
+				String operator = tokens.get(currentToken).getValue();
+
+				currentToken++; // Saltar operador
+				if (currentToken < tokens.size()) {
+					String rightOperand = tokens.get(currentToken).getValue();
+
+					// Si es un literal, generar LIT
+					if (tokens.get(currentToken).getType().equals("INTEGER") ||
+							tokens.get(currentToken).getType().equals("FLOAT")) {
+						codeGenerator.generateLiteral(rightOperand); // lit 0, 0
+					} else if (tokens.get(currentToken).getType().equals("IDENTIFIER")) {
+						codeGenerator.generateLoad(rightOperand); // lod rightVar, 0
+					}
+
+					// Generar la operación de comparación
+					codeGenerator.generateComparisonOperation(operator); // opr 11, 0
+				}
+			}
+		}
+
+		// Restaurar posición para el parsing normal
+		currentToken = startPos;
+	}
+
+	// Metodo auxiliar para detectar operadores de comparación
+	private boolean isComparisonOperator(String op) {
+		return op.equals(">") || op.equals("<") || op.equals("==") || op.equals("!=") ||
+				op.equals(">=") || op.equals("<=");
+	}
+
 	public Vector<String> getParseTreeLog() {
 		return parseTreeLog;
 	}
@@ -2484,26 +2526,72 @@ public class TheParser {
 
 	//Metodo para generar código de expresiones
 	private String generateExpressionCode() {
-		// Para expresiones simples, retornar el valor del token actual
+		int startPos = currentToken;
+
+		// Para expresiones como "x - 1", necesitamos generar:
+		// lod x, 0    (cargar x)
+		// lit 1, 0    (cargar 1)
+		// opr 3, 0    (operación resta)
+
 		if (currentToken < tokens.size()) {
 			String tokenType = tokens.get(currentToken).getType();
 			String tokenValue = tokens.get(currentToken).getValue();
-
-			switch (tokenType) {
-				case "INTEGER":
-				case "FLOAT":
-				case "STRING":
-				case "CHAR":
+			// Caso simple: literal directo
+			if (tokenType.equals("INTEGER") || tokenType.equals("FLOAT") ||
+					tokenType.equals("STRING") || tokenType.equals("CHAR")) {
+				return tokenValue;
+			}
+			// Caso simple: variable directa
+			if (tokenType.equals("IDENTIFIER") &&
+					(currentToken + 1 >= tokens.size() ||
+							(!isArithmeticOperator(tokens.get(currentToken + 1).getValue())))) {
+				return tokenValue;
+			}
+			// Caso complejo: expresión aritmética (ej: x - 1)
+			if (tokenType.equals("IDENTIFIER") &&
+					currentToken + 1 < tokens.size() &&
+					isArithmeticOperator(tokens.get(currentToken + 1).getValue())) {
+				generateArithmeticExpression();
+				return null; // El código ya fue generado
+			}
+			// Casos booleanos
+			if (tokenType.equals("KEYWORD")) {
+				if (tokenValue.equals("true") || tokenValue.equals("false")) {
 					return tokenValue;
-				case "IDENTIFIER":
-					return tokenValue;
-				case "KEYWORD":
-					if (tokenValue.equals("true") || tokenValue.equals("false")) {
-						return tokenValue;
-					}
-					break;
+				}
 			}
 		}
 		return null;
+	}
+
+	//Metodo para generar expresiones aritméticas
+	private void generateArithmeticExpression() {
+		// Para x - 1:
+		if (currentToken < tokens.size() && tokens.get(currentToken).getType().equals("IDENTIFIER")) {
+			String leftOperand = tokens.get(currentToken).getValue();
+			codeGenerator.generateLoad(leftOperand); // lod x, 0
+			currentToken++; // Saltar identificador
+			if (currentToken < tokens.size() && isArithmeticOperator(tokens.get(currentToken).getValue())) {
+				String operator = tokens.get(currentToken).getValue();
+				currentToken++; // Saltar operador
+				if (currentToken < tokens.size()) {
+					String rightOperand = tokens.get(currentToken).getValue();
+					// Si es un literal, generar LIT
+					if (tokens.get(currentToken).getType().equals("INTEGER") ||
+							tokens.get(currentToken).getType().equals("FLOAT")) {
+						codeGenerator.generateLiteral(rightOperand); // lit 1, 0
+					} else if (tokens.get(currentToken).getType().equals("IDENTIFIER")) {
+						codeGenerator.generateLoad(rightOperand); // lod rightVar, 0
+					}
+					// Generar la operación aritmética
+					codeGenerator.generateArithmeticOperation(operator); // opr 3, 0 (resta)
+				}
+			}
+		}
+	}
+
+	//Metodo auxiliar para detectar operadores aritméticos
+	private boolean isArithmeticOperator(String op) {
+		return op.equals("+") || op.equals("-") || op.equals("*") || op.equals("/");
 	}
 }

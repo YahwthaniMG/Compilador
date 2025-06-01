@@ -38,16 +38,50 @@ public class TheCodeGenerator {
         // First, add symbol table entries
         generateSymbolTableEntries(completeCode);
 
+        // Add labels to symbol table
+        addLabelsToSymbolTable(completeCode);
+
         // Add separator
         completeCode.add("@");
 
-        // Add generated instructions
-        completeCode.addAll(intermediateCode);
+        // Add generated instructions with label resolution
+        addInstructionsWithLabelResolution(completeCode);
 
         // Add program termination
         completeCode.add("opr 0, 0");
 
         return completeCode;
+    }
+
+    /**
+     * Agregar etiquetas a la tabla de símbolos
+     */
+    private void addLabelsToSymbolTable(Vector<String> code) {
+        int instructionNumber = 1; // Comenzar desde 1
+
+        // Contar instrucciones para asignar números a las etiquetas
+        for (String instruction : intermediateCode) {
+            if (instruction.endsWith(":")) {
+                // Es una etiqueta, agregar a la tabla de símbolos
+                String labelName = instruction.substring(0, instruction.length() - 1);
+                code.add(labelName + ", int, global, " + instructionNumber);
+            } else {
+                instructionNumber++;
+            }
+        }
+    }
+
+    /**
+     * Agregar instrucciones resolviendo las etiquetas
+     */
+    private void addInstructionsWithLabelResolution(Vector<String> code) {
+        for (String instruction : intermediateCode) {
+            if (!instruction.endsWith(":")) {
+                // No es una etiqueta, agregar la instrucción
+                code.add(instruction);
+            }
+            // Las etiquetas se omiten del código final (ya están en la tabla de símbolos)
+        }
     }
 
     /**
@@ -68,6 +102,16 @@ public class TheCodeGenerator {
                 code.add(entry);
             }
         }
+    }
+
+    /**
+     * Generates code for assignment when the value is already in the stack
+     * (resultado de una expresión compleja)
+     */
+    public void generateAssignmentFromStack(String varName) {
+        // El resultado de la expresión ya está en el stack
+        // Solo necesitamos almacenarlo
+        intermediateCode.add("sto " + varName + ", 0");
     }
 
     /**
@@ -203,6 +247,8 @@ public class TheCodeGenerator {
      * Generates conditional jump
      */
     public void generateConditionalJump(String label, String condition) {
+        // Para VM: jmc address, condition
+        // Si condition es "false", salta cuando el stack top es false (0)
         intermediateCode.add("jmc " + label + ", " + condition);
     }
 
@@ -217,8 +263,8 @@ public class TheCodeGenerator {
      * Adds a label to the code
      */
     public void addLabel(String label) {
-        // Labels are added to symbol table, not directly to code
-        // They will be resolved during VM execution
+        // Agregar la etiqueta directamente al código intermedio
+        intermediateCode.add(label + ":");
     }
 
     /**
