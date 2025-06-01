@@ -320,6 +320,7 @@ public class TheCodeGenerator {
         intermediateCode.add("lod " + varName + ", 0");
     }
 
+
     /**
      * Generates code to load a literal onto stack
      */

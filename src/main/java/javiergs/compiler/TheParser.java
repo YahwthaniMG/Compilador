@@ -105,7 +105,7 @@ public class TheParser {
 		statementBlockFirst.addAll(Arrays.asList("return", "while", "if", "do", "for", "switch", "(", "!", "-", "LITERAL"));
 		firstSets.put("STATEMENT_BLOCK", statementBlockFirst);
 		// EXPRESSION
-		Set<String> expressionFirst = new HashSet<>(Arrays.asList("IDENTIFIER", "(", "!", "-", "LITERAL"));
+		Set<String> expressionFirst = new HashSet<>(Arrays.asList("IDENTIFIER", "(", "!", "-", "LITERAL", "inputln"));
 		firstSets.put("EXPRESSION", expressionFirst);
 		// X
 		firstSets.put("X", new HashSet<>(expressionFirst));
@@ -114,15 +114,15 @@ public class TheParser {
 		yFirst.add("!");
 		firstSets.put("Y", yFirst);
 		// R
-		firstSets.put("R", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL")));
+		firstSets.put("R", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL", "inputln")));
 		// E
-		firstSets.put("E", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL")));
+		firstSets.put("E", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL", "inputln")));
 		// A
-		firstSets.put("A", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL")));
+		firstSets.put("A", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "-", "LITERAL", "inputln")));
 		// B
-		firstSets.put("B", new HashSet<>(Arrays.asList("-", "IDENTIFIER", "(", "LITERAL")));
+		firstSets.put("B", new HashSet<>(Arrays.asList("-", "IDENTIFIER", "(", "LITERAL", "inputln")));
 		// C
-		firstSets.put("C", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "LITERAL")));
+		firstSets.put("C", new HashSet<>(Arrays.asList("IDENTIFIER", "(", "LITERAL", "inputln")));
 		// TYPE
 		firstSets.put("TYPE", new HashSet<>(Arrays.asList("int", "float", "void", "char", "string", "boolean")));
 	}
@@ -881,20 +881,22 @@ public class TheParser {
 				currentToken++;
 				logParseRule("--- =");
 
-				if (!isInFirstSetOf("EXPRESSION")) {
-					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 601);
-					if (!foundFirst) {
-						System.out.println("Recovered: Missing expression in assignment");
-						indentLevel--;
-						return;
+				// DEBUG: Ver qué token sigue después del =
+				if (currentToken < tokens.size()) {
+					System.out.println("DEBUG: Token después de = es: '" + tokens.get(currentToken).getValue() + "' tipo: " + tokens.get(currentToken).getType());
+
+					if (currentToken + 1 < tokens.size()) {
+						System.out.println("DEBUG: Token siguiente es: '" + tokens.get(currentToken + 1).getValue() + "' tipo: " + tokens.get(currentToken + 1).getType());
 					}
 				}
 
-				// VERIFICAR SI ES inputln() DIRECTAMENTE
+				// VERIFICAR SI ES inputln() PRIMERO, ANTES de isInFirstSetOf
 				if (currentToken < tokens.size() &&
 						tokens.get(currentToken).getValue().equals("inputln") &&
 						currentToken + 1 < tokens.size() &&
 						tokens.get(currentToken + 1).getValue().equals("(")) {
+
+					System.out.println("DEBUG: DETECTADO inputln() - Generando código especial");
 
 					// Generar código para inputln directamente
 					codeGenerator.generateInputln();
@@ -912,7 +914,21 @@ public class TheParser {
 					// Almacenar el resultado en la variable
 					codeGenerator.generateAssignmentFromStack(variableName);
 
+					System.out.println("DEBUG: Código inputln generado exitosamente");
+
 				} else {
+					// Solo verificar isInFirstSetOf si NO es inputln
+					if (!isInFirstSetOf("EXPRESSION")) {
+						boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 601);
+						if (!foundFirst) {
+							System.out.println("Recovered: Missing expression in assignment");
+							indentLevel--;
+							return;
+						}
+					}
+
+					System.out.println("DEBUG: NO es inputln() - procesando como expresión normal");
+
 					// GENERACIÓN DE CÓDIGO: Generar código para la expresión
 					String assignmentValue = generateExpressionCode();
 
