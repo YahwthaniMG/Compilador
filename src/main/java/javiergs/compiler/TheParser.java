@@ -67,8 +67,14 @@ public class TheParser {
 		bodyFirst.addAll(Arrays.asList("return", "while", "if", "do", "for", "switch", "(", "!", "-"));
 		bodyFirst.add("LITERAL"); // For integer, float, etc.
 		bodyFirst.add("break");
+		bodyFirst.add("println");
+		bodyFirst.add("inputln");
 		bodyFirst.add(""); // epsilon
 		firstSets.put("BODY", bodyFirst);
+		// PRINTLN
+		firstSets.put("PRINTLN", new HashSet<>(Collections.singletonList("println")));
+		// INPUTLN
+		firstSets.put("INPUTLN", new HashSet<>(Collections.singletonList("inputln")));
 		// VARIABLE
 		firstSets.put("VARIABLE", new HashSet<>(methodsFirst));
 		// ASSIGNMENT
@@ -133,6 +139,10 @@ public class TheParser {
 		followSets.put("PARAMS", new HashSet<>(Collections.singletonList(")")));
 		// BODY
 		followSets.put("BODY", new HashSet<>(Arrays.asList("}", "break", "case", "default")));
+		// PRINTLN
+		followSets.put("PRINTLN", new HashSet<>(Arrays.asList(";", "}", "break", "case", "default")));
+		// INPUTLN
+		followSets.put("INPUTLN", new HashSet<>(Arrays.asList(";", "}", "break", "case", "default")));
 		// VARIABLE
 		followSets.put("VARIABLE", new HashSet<>(Collections.singletonList(";")));
 		// ASSIGNMENT
@@ -558,7 +568,7 @@ public class TheParser {
 	}
 
 	private void RULE_BODY() {
-		logParseRule("RULE_BODY");
+		logParseRule("-- RULE_BODY");
 		indentLevel++;
 		while (currentToken < tokens.size() &&
 				!(tokens.get(currentToken).getValue().equals("}") ||
@@ -568,7 +578,7 @@ public class TheParser {
 					RULE_VARIABLE();
 					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
 						currentToken++;
-						logParseRule(";");
+						logParseRule("-- ;");
 					} else {
 						error(1300);
 						// Skip until we find a semicolon or the start of another valid statement
@@ -578,14 +588,14 @@ public class TheParser {
 								!tokens.get(currentToken).getValue().equals("break")) {
 							if (tokens.get(currentToken).getValue().equals(";")) {
 								currentToken++;
-								logParseRule("; (recovered)");
+								logParseRule("-- ; (recovered)");
 								recovered = true;
 								break;
 							}
 							// Check if we've reached the start of another valid statement
 							if (isType() || isAssignment() || isMethodCall() || isReturnStatement() ||
 									isWhileStatement() || isIfStatement() || isDoStatement() ||
-									isForStatement() || isSwitchStatement()) {
+									isForStatement() || isSwitchStatement() || isPrintlnStatement()) {
 								System.out.println("Recovered: Found start of next statement");
 								recovered = true;
 								break;
@@ -663,7 +673,16 @@ public class TheParser {
 							break;
 						}
 					}
-				} else if (isReturnStatement()) {
+				}else if (isPrintlnStatement()) { // NUEVO: Agregar verificación para println
+					RULE_PRINTLN();
+					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
+						currentToken++;
+						logParseRule("-- ;");
+					} else {
+						error(1305);
+					}
+				}
+				else if (isReturnStatement()) {
 					RULE_RETURN();
 				} else if (isWhileStatement()) {
 					RULE_WHILE();
@@ -685,6 +704,7 @@ public class TheParser {
 									!isReturnStatement() && !isWhileStatement() &&
 									!isIfStatement() && !isDoStatement() &&
 									!isForStatement() && !isSwitchStatement() &&
+									!isPrintlnStatement() &&
 									!tokens.get(currentToken).getValue().equals("}") &&
 									!tokens.get(currentToken).getValue().equals("break")) {
 								currentToken++;
@@ -697,7 +717,7 @@ public class TheParser {
 					RULE_EXPRESSION();
 					if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(";")) {
 						currentToken++;
-						logParseRule(";");
+						logParseRule("-- ;");
 					} else {
 						error(1304);
 						// Similar recovery as above
@@ -2251,6 +2271,15 @@ public class TheParser {
 		logParseRule("RULE_PRINTLN");
 		indentLevel++;
 
+		if (!isInFirstSetOf("PRINTLN")) {
+			boolean foundFirst = skipUntilFirstOrFollow("PRINTLN", 1500);
+			if (!foundFirst) {
+				System.out.println("Recovered: Skipping PRINTLN rule");
+				indentLevel--;
+				return;
+			}
+		}
+
 		if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals("println")) {
 			currentToken++;
 			logParseRule("println");
@@ -2259,7 +2288,7 @@ public class TheParser {
 				currentToken++;
 				logParseRule("(");
 
-				// Capturar el valor a imprimir
+				// Capturar el valor a imprimir ANTES de procesar la expresión
 				String printValue = null;
 				if (currentToken < tokens.size()) {
 					printValue = tokens.get(currentToken).getValue();
@@ -2269,20 +2298,58 @@ public class TheParser {
 					codeGenerator.generatePrintln(printValue);
 				}
 
+				// Procesar la expresión
+				if (!isInFirstSetOf("EXPRESSION")) {
+					boolean foundFirst = skipUntilFirstOrFollow("EXPRESSION", 1501);
+					if (!foundFirst) {
+						System.out.println("Recovered: Missing expression in println");
+						indentLevel--;
+						return;
+					}
+				}
+
 				RULE_EXPRESSION(); // Procesar la expresión
 
 				if (currentToken < tokens.size() && tokens.get(currentToken).getValue().equals(")")) {
 					currentToken++;
 					logParseRule(")");
 				} else {
-					error(1501);
+					error(1502);
+					// Recovery: buscar el siguiente token válido
+					while (currentToken < tokens.size() &&
+							!tokens.get(currentToken).getValue().equals(";") &&
+							!isInFollowSetOf("PRINTLN")) {
+						currentToken++;
+					}
+					System.out.println("Recovered: Missing closing parenthesis in println");
 				}
 			} else {
-				error(1502);
+				error(1503);
+				// Recovery logic
+				while (currentToken < tokens.size() &&
+						!tokens.get(currentToken).getValue().equals(";") &&
+						!isInFollowSetOf("PRINTLN")) {
+					currentToken++;
+				}
+				System.out.println("Recovered: Missing opening parenthesis in println");
 			}
+		} else {
+			error(1504);
 		}
 
 		indentLevel--;
+	}
+
+	private boolean isPrintlnStatement() {
+		return currentToken < tokens.size() &&
+				tokens.get(currentToken).getType().equals("KEYWORD") &&
+				tokens.get(currentToken).getValue().equals("println");
+	}
+
+	private boolean isInputlnStatement() {
+		return currentToken < tokens.size() &&
+				tokens.get(currentToken).getType().equals("KEYWORD") &&
+				tokens.get(currentToken).getValue().equals("inputln");
 	}
 
 	private boolean isType() {
